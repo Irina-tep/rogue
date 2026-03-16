@@ -1,0 +1,22 @@
+[
+  {
+    "playerName": "Player",
+    "timestamp": "2026-03-15T23:11:35.108966+03:00",
+    "reachedLevel": 1,
+    "totalEnemies": 0,
+    "totalTreasure": 0,
+    "totalSteps": 16,
+    "totalPlayTime": 19,
+    "isCompleted": false
+  },
+  {
+    "playerName": "Player",
+    "timestamp": "2026-03-16T00:29:21.215067+03:00",
+    "reachedLevel": 1,
+    "totalEnemies": 0,
+    "totalTreasure": 0,
+    "totalSteps": 364,
+    "totalPlayTime": 100,
+    "isCompleted": false
+  }
+]
