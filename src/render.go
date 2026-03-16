@@ -1,6 +1,6 @@
 package main
 
-// Здесь отрисовка
+//Здесь отрисовка
 import (
 	"fmt"
 	"sort"
@@ -10,34 +10,32 @@ import (
 )
 
 const (
-	ScreenWidth  int = 80 // 64
-	ScreenHeight int = 50 // 43
+	ScreenWidth  int = 80 //64
+	ScreenHeight int = 50 //43
 )
 
 // система отрисовки
 type Renderer struct {
-	Stdsrc        *goncurses.Window // главная структура при использовании библиотеки goncurses
-	GameWindow    *goncurses.Window // окно с отрисовкой самой игры
-	MessageWindow *goncurses.Window // окно отвечает за сообщения
-	StatusWindow  *goncurses.Window // окно со статусом
+	Stdsrc        *goncurses.Window //главная структура при использовании библиотеки goncurses
+	GameWindow    *goncurses.Window //окно с отрисовкой самой игры
+	MessageWindow *goncurses.Window //окно отвечает за сообщения
+	StatusWindow  *goncurses.Window //окно со статусом
 }
 
 // Инициализация рендерера
 func (r *Renderer) Init() error {
 	stdscr, err := goncurses.Init()
 	if err != nil {
-		return fmt.Errorf("failed to initialize goncurses: %v", err)
+		return err
 	}
 
-	// Настраиваем режим ввода
-	goncurses.CBreak(true) // Отключаем буферизацию ввода
-	goncurses.Echo(false)  // Отключаем эхо ввода
-	goncurses.Cursor(0)    // Скрываем курсор
-	goncurses.StartColor() // Включаем поддержку цветов
+	goncurses.Echo(false)
+	goncurses.Cursor(0)
+	goncurses.StartColor()
 
 	r.Stdsrc = stdscr
 	// Создаем окно для игровой области (80x50)
-	r.GameWindow = stdscr.Sub(ScreenHeight+2, ScreenWidth+2, 5, 0) // координаты левого верхнего угла 0 0
+	r.GameWindow = stdscr.Sub(ScreenHeight+2, ScreenWidth+2, 5, 0) //координаты левого верхнего угла 0 0
 	// Окно для сообщений (5 строк внизу)
 	r.MessageWindow = stdscr.Sub(5, ScreenWidth+2, ScreenHeight+7, 0)
 	// Окно для статуса (5 строк сверху)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math/rand/v2"
 	"strconv"
 	"time"
@@ -15,23 +14,23 @@ const (
 // главная структура игры
 type Game struct {
 	Player            *Player
-	Levels            []Level // все 21 уровень
-	CurrentLevel      *Level  // текущий уровень
-	CurrentLevelIndex int     // индекс текущего уровня
+	Levels            []Level //все 21 уровень
+	CurrentLevel      *Level  //текущий уровень
+	CurrentLevelIndex int     //индекс текущего уровня
 	Messages          []string
-	Seed              uint64       // чтобы при запуске игры не генерировались одни и те же параметры, одна и та же последовательность
-	RNG               *rand.Rand   // для генерации
-	Running           bool         // тру - игра активна , если нет - программа заверщается
-	StateGame         int          // сотояние игры
+	Seed              uint64       //чтобы при запуске игры не генерировались одни и те же параметры, одна и та же последовательность
+	RNG               *rand.Rand   //для генерации
+	Running           bool         //тру - игра активна , если нет - программа заверщается
+	StateGame         int          //сотояние игры
 	SaveManager       *SaveManager // Добавляем менеджер сохранений
 }
 
 // сотояния игры
 const (
-	YouLose  int = 1 // ты поиграл
-	YouWin   int = 2 // ты выиграл
-	YouGame  int = 3 // ты играешь
-	MainMenu int = 4 // главное меню
+	YouLose  int = 1 //ты поиграл
+	YouWin   int = 2 //ты выиграл
+	YouGame  int = 3 //ты играешь
+	MainMenu int = 4 //главное меню
 )
 
 // Этот конструктор создаст Game для нас новый объект, который в данный момент пуст, но будет расширяться по мере дальнейшего выполнения кода.
@@ -52,7 +51,7 @@ func NewGame(state int) *Game {
 			level.Number = i
 			g.Levels = append(g.Levels, level) // Теперь игра загрузит нашу карту в качестве первого уровня. Использовть это, если мы будем делать слайс Level в структуре Game
 		}
-		// Инициализируем уровень
+		//Инициализируем уровень
 		g.CurrentLevelIndex = 0
 		g.CurrentLevel = &g.Levels[0]
 		// поместить игрока в рандомное место в первой комнате
@@ -94,7 +93,7 @@ func (g *Game) AddMessage(msg string) {
 	}
 }
 
-// если будем менять логику, то понадобится, пока не нужно
+//если будем менять логику, то понадобится, пока не нужно
 // func (g *Game) Update() error {
 // 	HandleInput(g)
 // 	return nil
@@ -105,9 +104,7 @@ func main() {
 	game := NewGame(MainMenu)
 
 	render := Renderer{}
-	if err := render.Init(); err != nil {
-		log.Fatalf("Failed to initialize renderer: %v", err)
-	}
+	render.Init()
 	controller := NewController(game, render.GameWindow)
 	defer render.Cleanup()
 
@@ -145,33 +142,6 @@ func (g *Game) LoadFromSave(saveData *SaveData) error {
 	g.Player.CountScrollsRead = saveData.Player.CountScrollsRead
 	g.Player.CountHits = saveData.Player.CountHits
 	g.Player.CountTile = saveData.Player.CountTile
-	g.Player.IsSleeping = saveData.Player.IsSleeping
-
-	// Восстанавливаем рюкзак
-	g.Player.Backpack = NewBackpack()
-	for objectType, objects := range saveData.Player.Backpack {
-		for _, objectData := range objects {
-			object := &Object{
-				TypeObject:    objectData.TypeObject,
-				SubtypeObject: objectData.SubtypeObject,
-				Health:        objectData.Health,
-				MaxHealth:     objectData.MaxHealth,
-				Dexterity:     objectData.Dexterity,
-				Strength:      objectData.Strength,
-				ValueObject:   objectData.ValueObject,
-				Damage:        objectData.Damage,
-			}
-			g.Player.Backpack.Objects[objectType] = append(g.Player.Backpack.Objects[objectType], object)
-		}
-	}
-
-	// Проверка и инициализация временных эффектов
-	if g.Player.TemporaryEffects == nil {
-		g.Player.TemporaryEffects = make(map[string]int)
-	}
-
-	// Восстанавливаем временные эффекты
-	g.Player.TemporaryEffects = saveData.Player.TemporaryEffects
 
 	// Создаем новый уровень
 	g.CurrentLevel = &Level{

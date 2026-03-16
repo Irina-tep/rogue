@@ -35,15 +35,15 @@ func (r *Room) RandomPos() (int, int) {
 }
 
 const (
-	GridSizeRoom = 3 // делим поле 3х3
-	MinSpacing   = 3 // минимальное расстояние между комнатами
-	MinsizeRoom  = 4 // минимальная длина и ширина 4 клетки
+	GridSizeRoom = 3 //делим поле 3х3
+	MinSpacing   = 3 //минимальное расстояние между комнатами
+	MinsizeRoom  = 4 //минимальная длина и ширина 4 клетки
 )
 
 func (level *Level) CreateRooms() {
-	// рандомная генерация комнат
+	//рандомная генерация комнат
 	// Разбиваем поле на сетку с учетом зазоров
-	// 3x3 сетки с промежутками 3 клетки
+	//3x3 сетки с промежутками 3 клетки
 	// Рассчитываем доступное пространство для комнат
 	availableWidth := ScreenWidth - (GridSizeRoom-1)*MinSpacing
 	availableHeight := ScreenHeight - (GridSizeRoom-1)*MinSpacing
@@ -67,16 +67,8 @@ func (level *Level) CreateRooms() {
 			max_y := sectionYend - height
 			x := GeneratorNum(sectionXstart, max_x)
 			y := GeneratorNum(sectionYstart, max_y)
-			room := NewRoom(x, y, width, height) // левый верний угол, ширина, высота
+			room := NewRoom(x, y, width, height) //левый верний угол, ширина, высота
 			level.Rooms = append(level.Rooms, room)
 		}
 	}
-}
-
-// Метод для проверки, заблокирована ли клетка
-func (r *Room) IsBlocked(level *Level, x, y int) bool {
-	if x < r.X1 || x > r.X2 || y < r.Y1 || y > r.Y2 {
-		return true // Клетка вне комнаты
-	}
-	return level.Tiles[x][y].Blocked
 }

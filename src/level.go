@@ -8,10 +8,10 @@ import (
 type Level struct {
 	Tiles   [][]Tile
 	Rooms   []Room
-	Tunnels []Tunnel // все тоннели
-	Enemies []Enemy  // все врагами
+	Tunnels []Tunnel //все тоннели
+	Enemies []Enemy  //все врагами
 	Objects []*Object
-	Number  int // номер уровня
+	Number  int //номер уровня
 }
 
 // конструктор Level
@@ -29,9 +29,9 @@ func NewLevel() Level {
 type Tile struct {
 	PosX            int
 	PosY            int
-	Blocked         bool // можно ли переместиться на клетку или нет, на стену переместиться нельзя, поэтому в этом случае будет true, внутри комнаты перемещаться можно, будет falsw
+	Blocked         bool //можно ли переместиться на клетку или нет, на стену переместиться нельзя, поэтому в этом случае будет true, внутри комнаты перемещаться можно, будет falsw
 	Symbol          byte
-	BlockedForEnemy bool // враги могут ходить только по своей комнате
+	BlockedForEnemy bool //враги могут ходить только по своей комнате
 }
 
 // Это определяет набор констант для типов игровых клеток, которые у нас есть, и упрощает дальнейшее расширение, когда мы захотим добавить двери или лестницы.
@@ -43,16 +43,16 @@ const (
 	TilePlayer       string = "player"
 	TileTunnel       string = "tunnel"
 	TilePortal       string = "Portal"
-	TileZombie       string = "zombie"    // Зомби
-	TileVampire      string = "vampire"   // Вампир
-	TileGhost        string = "ghost"     // Призрак
-	TileOgre         string = "ogre"      // Огр
-	TileSnakeMage    string = "snakeMage" // Змееволг
-	TileFood         string = "food"      // Пища в определенной степени восстанавливает здоровье .
+	TileZombie       string = "zombie"    //Зомби
+	TileVampire      string = "vampire"   //Вампир
+	TileGhost        string = "ghost"     //Призрак
+	TileOgre         string = "ogre"      //Огр
+	TileSnakeMage    string = "snakeMage" //Змееволг
+	TileFood         string = "food"      //Пища в определенной степени восстанавливает здоровье .
 	// TileTreasure string = "treasure"  //Сокровища — имеют ценность, накапливаются со временем и влияют на итоговый счет. Сокровища можно получить только победив врагов
-	TileElixir string = "elixir" // Эликсиры — временно увеличивают один из параметров персонажа: ловкость, силу или максимальное здоровье.
-	TileScroll string = "scroll" // Свитки — навсегда увеличивают один из параметров: ловкость, силу или максимальное здоровье.
-	TileWeapon string = "weapon" // Оружие обладает показателем силы .
+	TileElixir string = "elixir" //Эликсиры — временно увеличивают один из параметров персонажа: ловкость, силу или максимальное здоровье.
+	TileScroll string = "scroll" //Свитки — навсегда увеличивают один из параметров: ловкость, силу или максимальное здоровье.
+	TileWeapon string = "weapon" //Оружие обладает показателем силы .
 )
 
 // создаем свою ошибку, если найденный символ не найден, возможно потом не будем использовать
@@ -129,7 +129,7 @@ func (level *Level) createTiles() {
 	for i := range tiles {
 		tiles[i] = make([]Tile, ScreenHeight)
 	}
-	// нужно заполнить весь уровень пустотой
+	//нужно заполнить весь уровень пустотой
 	for x := 0; x < ScreenWidth; x++ {
 		for y := 0; y < ScreenHeight; y++ {
 			outside, err := NewTile(x, y, TileOutside)
@@ -179,7 +179,7 @@ func (level *Level) createTiles() {
 		}
 
 	}
-	// строим клетки с коридорами
+	//строим клетки с коридорами
 	for _, path := range level.Tunnels {
 		for _, coordPath := range path.Path {
 			tunnels, err := NewTile(coordPath[0], coordPath[1], TileTunnel)
@@ -189,7 +189,7 @@ func (level *Level) createTiles() {
 			tiles[coordPath[0]][coordPath[1]] = tunnels
 		}
 	}
-	// строим клетки с предметами
+	//строим клетки с предметами
 	for _, object := range level.Objects {
 		tileType := GetObjectSymbol(object.TypeObject)
 		tile, err := NewTile(object.PosX, object.PosY, tileType)
@@ -199,7 +199,7 @@ func (level *Level) createTiles() {
 		tiles[object.PosX][object.PosY] = tile
 	}
 
-	// строим игрока
+	//строим игрока
 	startX, startY := level.Rooms[0].RandomPos()
 	player, err := NewTile(startX, startY, TilePlayer)
 	if err != nil {
@@ -207,7 +207,7 @@ func (level *Level) createTiles() {
 	}
 	tiles[startX][startY] = player
 
-	// строим клетки с врагами
+	//строим клетки с врагами
 	for _, enemy := range level.Enemies {
 		tile, err := NewTile(enemy.PosXEnemy, enemy.PosYEnemy, enemy.TypeEnemy)
 		if err != nil {
@@ -216,7 +216,7 @@ func (level *Level) createTiles() {
 		tiles[enemy.PosXEnemy][enemy.PosYEnemy] = tile
 	}
 	level.Tiles = tiles
-	// строим клетку с порталом - переход на следующий уровень
+	//строим клетку с порталом - переход на следующий уровень
 	if level.Number < CountLevels {
 		coordXPort, coordYPort := level.CreatePortal()
 		portal, err := NewTile(coordXPort, coordYPort, TilePortal)
@@ -229,16 +229,16 @@ func (level *Level) createTiles() {
 
 // генерация портала , который дает нам перейти на новый уровень
 func (level *Level) CreatePortal() (int, int) {
-	// выбираем рандомную комнату, кроме стартовой, она сейчас у на 0
+	//выбираем рандомную комнату, кроме стартовой, она сейчас у на 0
 	indexRoom := GeneratorNum(1, 7)
 	for {
 		coordXPort, coordYPort := level.Rooms[indexRoom].RandomPos()
-		// возвращаем только те координаты, которые ранее не заняты
+		//возвращаем только те координаты, которые ранее не заняты
 		if level.Tiles[coordXPort][coordYPort].Symbol == '.' {
 			return coordXPort, coordYPort
 		}
 	}
-	// возвращает координаты этого портала
+	//возвращает координаты этого портала
 }
 
 // функция достает координаты игрока из тайлов
@@ -253,15 +253,10 @@ func (level *Level) GetPos() (int, int) {
 	return 0, 0
 }
 
-// CreateObjects — размещение предметов в комнатах
+// PlaceObjectsInRoom — размещение предметов в комнатах
 func (level *Level) CreateObjects() {
-	maxObjects := 5 - level.Number/3 // Уменьшаем количество предметов с уровнем
-	if maxObjects < 1 {
-		maxObjects = 1
-	}
-
 	for _, room := range level.Rooms {
-		numObjects := GeneratorNum(0, maxObjects)
+		numObjects := GeneratorNum(0, 3) // от 2 до 4 предметов в комнате
 		for i := 0; i < numObjects; i++ {
 			posX, posY := room.RandomPos()
 			objectType := GeneratorNum(FOOD, WEAPON)
