@@ -1,28 +1,35 @@
 package main
 
+import (
+	"fmt"
+)
+
 type Enemy struct {
 	PosXEnemy      int
 	PosYEnemy      int
-	TypeEnemy      string //тип
-	HealthEnemy    int    //здоровье,
-	DexterityEnemy int    //ловкость
-	StrengthEnemy  int    //сила
-	HostilityEnemy int    //враждебность Атрибут враждебности определяет расстояние, с которого противник начинает преследовать игрока
-	CurrentRoom    *Room  //ссылка на текущую комнату, так как игрок не может выйти за пределы комнаты
-	Mode           int    //режим врага 1 - свободное движение врага в соответствии с своей схемой движения, 2 - преследование игрока, 3 -режим боя
-	Treasure       int    //сколько сокровищ свтоит кадый враг при уничтожении
+	TypeEnemy      string // Тип врага: Zombie, Vampire, Ghost, Ogre, SnakeMage
+	HealthEnemy    int    // Здоровье
+	DexterityEnemy int    // Ловкость
+	StrengthEnemy  int    // Сила
+	HostilityEnemy int    // Враждебность (радиус преследования)
+	CurrentRoom    *Room  // Текущая комната
+	Mode           int    // Режим: Roaming, Chasing, Fight
+	IsVisible      bool   // Видимость (для призраков)
+	IsSleeping     bool   // Состояние сна (для змееволгов)
+	Cooldown       int    // Задержка перед атакой (для огров)
+	Treasure       int    // Количество сокровищ, которые даёт враг при поражении
 }
 
 // типов врагов
 const (
-	Zombie    string = "zombie"    //Зомби
-	Vampire   string = "vampire"   //Вампир
-	Ghost     string = "ghost"     //Призрак
-	Ogre      string = "ogre"      //Огр
-	SnakeMage string = "snakeMage" //Змееволг
+	Zombie    string = "zombie"    // Зомби
+	Vampire   string = "vampire"   // Вампир
+	Ghost     string = "ghost"     // Призрак
+	Ogre      string = "ogre"      // Огр
+	SnakeMage string = "snakeMage" // Змееволг
 )
 
-const ( //шанс появления врага, потом будем менять вероятность появления врага в комнате в зависимости от уровня, так как По мере того, как игрок переходит на каждый новый уровень:
+const ( // шанс появления врага, потом будем менять вероятность появления врага в комнате в зависимости от уровня, так как По мере того, как игрок переходит на каждый новый уровень:
 	// количество и сложность врагов увеличиваются
 	ChanceZombie    int = 30
 	ChanceVampire   int = 25
@@ -33,39 +40,63 @@ const ( //шанс появления врага, потом будем меня
 
 // режим врага
 const (
-	Roaming     = 1 //режим врага 1 - свободное движение врага, 2 - преследование игрока, 3 -режим боя
+	Roaming     = 1 // режим врага 1 - свободное движение врага, 2 - преследование игрока, 3 -режим боя
 	Chasing     = 2
 	Fight   int = 3
 )
 
 // враждебность
 const (
-	LoWHostility    int = 4 //низкая враждебность
-	MiddleHostility int = 6 //средняя враждеюность
-	HighHostility   int = 8 //высокая враждебность
+	LoWHostility    int = 4 // низкая враждебность
+	MiddleHostility int = 6 // средняя враждеюность
+	HighHostility   int = 8 // высокая враждебность
 )
 
 // характеристики врагов будут меняться, пока поставлены просто так
-func NewEnemy(coordXEnemy int, coordYEnemy int, typeEnemy string, currentRoom *Room) Enemy {
+func NewEnemy(coordXEnemy, coordYEnemy int, typeEnemy string, currentRoom *Room) Enemy {
 	enemy := Enemy{
-		PosXEnemy:      coordXEnemy,
-		PosYEnemy:      coordYEnemy,
-		TypeEnemy:      typeEnemy,
-		HealthEnemy:    5,
-		DexterityEnemy: 5,
-		StrengthEnemy:  5,
-		HostilityEnemy: 0,
-		CurrentRoom:    currentRoom,
-		Mode:           Roaming,
-		Treasure:       5, //пока для всех одинаковое вознаграждение за убиство
+		PosXEnemy:   coordXEnemy,
+		PosYEnemy:   coordYEnemy,
+		TypeEnemy:   typeEnemy,
+		CurrentRoom: currentRoom,
+		Mode:        Roaming,
+		IsVisible:   true,
+		IsSleeping:  false,
+		Cooldown:    0,
 	}
-	if enemy.TypeEnemy == Ghost {
-		enemy.HostilityEnemy = LoWHostility
-	} else if enemy.TypeEnemy == Zombie || enemy.TypeEnemy == Ogre {
-		enemy.HostilityEnemy = MiddleHostility
-	} else {
-		enemy.HostilityEnemy = HighHostility
+
+	switch typeEnemy {
+	case Zombie:
+		enemy.HealthEnemy = 30
+		enemy.DexterityEnemy = 5
+		enemy.StrengthEnemy = 10
+		enemy.HostilityEnemy = 5
+		enemy.Treasure = 10
+	case Vampire:
+		enemy.HealthEnemy = 25
+		enemy.DexterityEnemy = 15
+		enemy.StrengthEnemy = 10
+		enemy.HostilityEnemy = 7
+		enemy.Treasure = 20
+	case Ghost:
+		enemy.HealthEnemy = 10
+		enemy.DexterityEnemy = 20
+		enemy.StrengthEnemy = 5
+		enemy.HostilityEnemy = 10 // Увеличиваем радиус враждебности
+	case Ogre:
+		enemy.HealthEnemy = 40
+		enemy.DexterityEnemy = 5
+		enemy.StrengthEnemy = 20
+		enemy.HostilityEnemy = 5
+		enemy.Treasure = 25
+	case SnakeMage:
+		enemy.HealthEnemy = 20
+		enemy.DexterityEnemy = 25
+		enemy.StrengthEnemy = 10
+		enemy.HostilityEnemy = 8
+		enemy.Treasure = 30
 	}
+
 	return enemy
 }
 
@@ -74,22 +105,22 @@ type EnemyType struct {
 	Chance int
 }
 
-// генерация врагов в комнатах. В дальнейшем сюда нужно будет учитывать шанс появдения и сложность по уровням
+// генерация врагов в комнатах с учетом шанса появления и сложности по уровням
 func (level *Level) CreateEnemies() {
-	var enemyTypes = []EnemyType{
-		{Zombie, ChanceZombie},
-		{Vampire, ChanceVampire},
-		{Ghost, ChanceGhost},
-		{Ogre, ChanceOgre},
-		{SnakeMage, ChanceSnakeMage},
+	enemyChances := map[string]int{
+		Zombie:    30 + level.Number*2,
+		Vampire:   25 + level.Number*3,
+		Ghost:     20 + level.Number*1,
+		Ogre:      15 + level.Number*2,
+		SnakeMage: 10 + level.Number*2,
 	}
+
 	for i := 1; i < amountRoom; i++ {
-		for _, et := range enemyTypes {
-			chanceEnemies := GeneratorNum(0, 100)
-			if chanceEnemies < et.Chance {
+		for enemyType, chance := range enemyChances {
+			if GeneratorNum(0, 100) < chance {
 				x, y := level.Rooms[i].RandomPos()
 				currentRoom := &level.Rooms[i]
-				enemy := NewEnemy(x, y, et.Name, currentRoom)
+				enemy := NewEnemy(x, y, enemyType, currentRoom)
 				level.Enemies = append(level.Enemies, enemy)
 			}
 		}
@@ -101,8 +132,8 @@ func (en *Enemy) EnemyMove() (int, int) {
 	switch en.TypeEnemy {
 	case Zombie, Vampire:
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
-		//генерируется случайное направление движения на 1 клетку
-		//1 вправо, 2 вниз, 3 влево, 4 вверх
+		// генерируется случайное направление движения на 1 клетку
+		// 1 вправо, 2 вниз, 3 влево, 4 вверх
 		direction := GeneratorNum(1, 4)
 		if direction == 1 && en.PosXEnemy < x2 {
 			newX = en.PosXEnemy + 1
@@ -118,7 +149,7 @@ func (en *Enemy) EnemyMove() (int, int) {
 
 	case Ogre:
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
-		//генерируется случайное направление движения на 1 клетку
+		// генерируется случайное направление движения на 1 клетку
 		direction := GeneratorNum(1, 4)
 		if direction == 1 && en.PosXEnemy < x2-1 {
 			newX = en.PosXEnemy + 2
@@ -243,8 +274,88 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 	return newX, newY
 }
 
-// // функция объекта — это способность к перемещению.
-// func (player *Player) Move(dx int, dy int) {
-// 	player.PosX += dx
-// 	player.PosY += dy
-// }
+// Метод для проверки, заблокирована ли клетка
+func (en *Enemy) isBlocked(level *Level, x, y int) bool {
+	if x < 0 || x >= ScreenWidth || y < 0 || y >= ScreenHeight {
+		return true
+	}
+	return en.CurrentRoom.IsBlocked(level, x, y)
+}
+
+// Attack атакует игрока, учитывая тип врага и его уникальные способности
+func (en *Enemy) Attack(player *Player, controller *Controller) bool {
+	// Проверка на попадание
+	hitChance := 70 + en.DexterityEnemy - player.Dexterity
+	if hitChance > 90 {
+		hitChance = 90
+	} else if hitChance < 10 {
+		hitChance = 10
+	}
+
+	if GeneratorNum(0, 100) > hitChance {
+		controller.Game.AddMessage(fmt.Sprintf("%s missed!", en.TypeEnemy))
+		return false
+	}
+
+	// Уникальные особенности для каждого типа врага при атаке
+	switch en.TypeEnemy {
+	case Zombie:
+		// Зомби могут заразить игрока, уменьшая его максимальное здоровье
+		if GeneratorNum(0, 100) < 10 { // 10% шанс
+			player.MaxHP -= 1
+			if player.MaxHP < 1 {
+				player.MaxHP = 1
+			}
+			controller.Game.AddMessage("Zombie infected you, reducing your max HP!")
+		}
+	case Vampire:
+		// Первая атака вампира всегда промахивается
+		if en.Mode != Fight {
+			controller.Game.AddMessage("Vampire's first attack missed!")
+			en.Mode = Fight
+			return false
+		}
+		// Уменьшаем максимальное здоровье игрока
+		player.MaxHP -= 1
+		if player.MaxHP < 1 {
+			player.MaxHP = 1
+		}
+		controller.Game.AddMessage("Vampire drained your max HP!")
+	case Ghost:
+		// Призраки могут стать невидимыми после атаки
+		if GeneratorNum(0, 100) < 50 { // 50% шанс
+			en.IsVisible = false
+			controller.Game.AddMessage("Ghost turned invisible!")
+		}
+	case Ogre:
+		// Огры отдыхают один ход после атаки
+		en.Cooldown = 1
+		controller.Game.AddMessage("Ogre is resting after attack!")
+	case SnakeMage:
+		// Змееволги могут усыпить игрока
+		if GeneratorNum(0, 100) < 30 { // 30% шанс
+			player.IsSleeping = true
+			controller.Game.AddMessage("Snake Mage put you to sleep!")
+		}
+	}
+
+	// Рассчитываем урон
+	damage := en.StrengthEnemy + GeneratorNum(0, 5)
+	player.HP -= damage
+	if player.HP < 0 {
+		player.HP = 0
+	}
+
+	controller.Game.AddMessage(fmt.Sprintf("%s hit you for %d damage!", en.TypeEnemy, damage))
+
+	//controller.Game.Renderer.Render(controller.Game)
+	//renderer.Render(controller.Game)
+
+	// Проверяем, умер ли игрок
+	if player.HP <= 0 {
+		controller.Game.StateGame = YouLose
+		controller.Game.AddMessage("You died!")
+	}
+
+	return true
+}

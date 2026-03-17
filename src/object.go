@@ -6,17 +6,28 @@ import (
 
 // Типы предметов
 const (
-	FOOD     = iota
-	ELEXIR   = iota
-	SCROL    = iota
-	WEAPON   = iota
-	TREASURE = iota //не участвует в генерации, так он не лежит в комнате, а накапливается при убийсте врага
-)
+	// Типы предметов
+	FOOD = iota
+	ELEXIR
+	SCROL
+	WEAPON
 
-// Подтипы предметов
-const (
-	RATION = iota
-	FRUIT  = iota
+	// Подтипы еды
+	RATION
+	FRUIT
+
+	// Подтипы эликсиров
+	DEXTERITY_ELIXIR
+	STRENGTH_ELIXIR
+
+	// Подтипы свитков
+	DEXTERITY_SCROL
+	STRENGTH_SCROL
+	HEALTH_SCROL
+
+	// Подтипы оружия
+	DAGGER
+	SWORD
 )
 
 // Object — структура для предметов
@@ -37,29 +48,40 @@ type Object struct {
 
 // NewObject — создание нового предмета с заданным типом
 func NewObject(objectType int) *Object {
-	object := &Object{
-		TypeObject:   objectType,
-		IsCursed:     false,
-		IsIdentified: false,
-		Damage:       "1d1",
-		Quantity:     1,
-	}
+	object := &Object{TypeObject: objectType}
 
-	// Инициализация в зависимости от типа предмета
 	switch objectType {
 	case FOOD:
-		object.SubtypeObject = RATION
-		if GeneratorNum(0, 1) == 0 {
-			object.SubtypeObject = FRUIT
-		}
+		object.SubtypeObject = GeneratorNum(RATION, FRUIT)
+		object.Health = 5
 	case ELEXIR:
-		object.Health = GeneratorNum(1, 10)
-	case WEAPON:
-		object.Damage = generateWeaponDamage()
-		object.Strength = GeneratorNum(1, 3)
+		subtype := GeneratorNum(DEXTERITY_ELIXIR, STRENGTH_ELIXIR)
+		object.SubtypeObject = subtype
+		if subtype == DEXTERITY_ELIXIR {
+			object.Dexterity = 2
+		} else if subtype == STRENGTH_ELIXIR {
+			object.Strength = 2
+		}
 	case SCROL:
-		object.Dexterity = GeneratorNum(1, 3)
+		subtype := GeneratorNum(DEXTERITY_SCROL, HEALTH_SCROL)
+		object.SubtypeObject = subtype
+		if subtype == DEXTERITY_SCROL {
+			object.Dexterity = 2
+		} else if subtype == STRENGTH_SCROL {
+			object.Strength = 2
+		} else if subtype == HEALTH_SCROL {
+			object.MaxHealth = 5
+		}
+	case WEAPON:
+		subtype := GeneratorNum(DAGGER, SWORD)
+		object.SubtypeObject = subtype
+		if subtype == DAGGER {
+			object.Damage = "1d4"
+		} else if subtype == SWORD {
+			object.Damage = "1d6"
+		}
 	}
+
 	return object
 }
 

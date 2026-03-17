@@ -1,6 +1,6 @@
 package main
 
-//Здесь отрисовка
+// Здесь отрисовка
 import (
 	"fmt"
 	"sort"
@@ -10,36 +10,44 @@ import (
 )
 
 const (
-	ScreenWidth  int = 80 //64
-	ScreenHeight int = 50 //43
+	ScreenWidth  int = 61 // 64
+	ScreenHeight int = 40 // 43
 )
 
 // система отрисовки
 type Renderer struct {
-	Stdsrc        *goncurses.Window //главная структура при использовании библиотеки goncurses
-	GameWindow    *goncurses.Window //окно с отрисовкой самой игры
-	MessageWindow *goncurses.Window //окно отвечает за сообщения
-	StatusWindow  *goncurses.Window //окно со статусом
+	Stdsrc        *goncurses.Window // главная структура при использовании библиотеки goncurses
+	GameWindow    *goncurses.Window // окно с отрисовкой самой игры
+	MessageWindow *goncurses.Window // окно отвечает за сообщения
+	StatusWindow  *goncurses.Window // окно со статусом
 }
 
 // Инициализация рендерера
 func (r *Renderer) Init() error {
 	stdscr, err := goncurses.Init()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize goncurses: %v", err)
 	}
 
-	goncurses.Echo(false)
-	goncurses.Cursor(0)
-	goncurses.StartColor()
+	// Настраиваем режим ввода
+	goncurses.CBreak(true) // Отключаем буферизацию ввода
+	goncurses.Echo(false)  // Отключаем эхо ввода
+	goncurses.Cursor(0)    // Скрываем курсор
+	goncurses.StartColor() // Включаем поддержку цветов
+
+	// Инициализация цветовых пар
+	goncurses.InitPair(1, int16(goncurses.C_GREEN), int16(goncurses.C_BLACK))  // Зомби
+	goncurses.InitPair(2, int16(goncurses.C_RED), int16(goncurses.C_BLACK))    // Вампир
+	goncurses.InitPair(3, int16(goncurses.C_WHITE), int16(goncurses.C_BLACK))  // Призрак
+	goncurses.InitPair(4, int16(goncurses.C_YELLOW), int16(goncurses.C_BLACK)) // Огр
 
 	r.Stdsrc = stdscr
 	// Создаем окно для игровой области (80x50)
-	r.GameWindow = stdscr.Sub(ScreenHeight+2, ScreenWidth+2, 5, 0) //координаты левого верхнего угла 0 0
+	r.GameWindow = stdscr.Sub(ScreenHeight+2, ScreenWidth+2, 5, 0) // координаты левого верхнего угла 0 0
 	// Окно для сообщений (5 строк внизу)
-	r.MessageWindow = stdscr.Sub(5, ScreenWidth+2, ScreenHeight+7, 0)
+	r.MessageWindow = stdscr.Sub(5, ScreenWidth+2, ScreenHeight+1, 0)
 	// Окно для статуса (5 строк сверху)
-	r.StatusWindow = stdscr.Sub(5, ScreenWidth+2, 0, 0)
+	r.StatusWindow = stdscr.Sub(5, ScreenWidth+1, 0, 0)
 	return nil
 }
 
@@ -101,11 +109,46 @@ func (r *Renderer) Render(g *Game) {
 			}
 		}
 	} else {
+		// Определяем видимость
+		g.CurrentLevel.CalculateVisibility(g.Player.PosX, g.Player.PosY, 8) // Радиус видимости
 		// Отрисовываем уровень
+
 		for x := 0; x < len(g.CurrentLevel.Tiles); x++ {
 			for y := 0; y < len(g.CurrentLevel.Tiles[x]); y++ {
 				tile := g.CurrentLevel.Tiles[x][y]
-				r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
+				// Если это позиция игрока, всегда отображаем игрока
+				if x == g.Player.PosX && y == g.Player.PosY {
+					//colorPair := getEnemyColor(string(tile.Symbol))
+					r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
+					//r.GameWindow.ColorOff(colorPair)
+				} else if g.CurrentLevel.Explored[x][y] {
+					// Проверяем, находится ли игрок в текущей комнате
+					inPlayerRoom := false
+					for _, room := range g.CurrentLevel.Rooms {
+						if x >= room.X1 && x <= room.X2 && y >= room.Y1 && y <= room.Y2 &&
+							g.Player.PosX >= room.X1 && g.Player.PosX <= room.X2 &&
+							g.Player.PosY >= room.Y1 && g.Player.PosY <= room.Y2 {
+							inPlayerRoom = true
+							break
+						}
+					}
+
+					if inPlayerRoom {
+						r.GameWindow.AttrOn(tile.ColorAttr | goncurses.A_BOLD)
+						r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
+						r.GameWindow.AttrOff(tile.ColorAttr | goncurses.A_BOLD)
+					} else {
+						// Если комната ранее исследована, но игрок не в ней, отображаем только стены и тоннели
+						if tile.Symbol == '|' || tile.Symbol == '-' || tile.Symbol == '#' {
+							r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
+						} else {
+							r.GameWindow.MovePrint(y+1, x+1, " ")
+						}
+					}
+				} else {
+					// Если область не исследована, отображаем пустоту
+					r.GameWindow.MovePrint(y+1, x+1, " ")
+				}
 			}
 		}
 		// Отрисовываем статус
@@ -113,6 +156,7 @@ func (r *Renderer) Render(g *Game) {
 		r.StatusWindow.MovePrintf(1, 20, "Treasure: %d", g.Player.Treasure)
 		r.StatusWindow.MovePrintf(1, 40, "Dexterity: %d", g.Player.Dexterity)
 		r.StatusWindow.MovePrintf(2, 2, "Strength: %d", g.Player.Strength)
+		r.StatusWindow.MovePrintf(3, 2, "Level: %d", g.CurrentLevelIndex+1)
 		// r.StatusWindow.MovePrintf(2, 2, "Current Weapon: %s", g.Player.CurrenWeapon)
 
 		// Отрисовываем сообщения (последние 4 сообщения)

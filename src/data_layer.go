@@ -19,21 +19,24 @@ type SaveData struct {
 
 // копируем в новую структуру данных все состояние игры
 type PlayerData struct {
-	PosX              int    `json:"posX"`
-	PosY              int    `json:"posY"`
-	HP                int    `json:"hp"`
-	MaxHP             int    `json:"maxHp"`
-	Dexterity         int    `json:"dexterity"`
-	Strength          int    `json:"strength"`
-	CurrenWeapon      string `json:"weapon"`
-	Treasure          int    `json:"treasure"`
-	CurrentLevelIndex int    `json:"level"`
-	CountEnemy        int    `json:"countEnemy"`
-	CountFood         int    `json:"countFood"`
-	CountElixir       int    `json:"countElixir"`
-	CountScrollsRead  int    `json:"countScrollsRead"`
-	CountHits         int    `json:"countHits"`
-	CountTile         int    `json:"countTile"`
+	PosX              int                   `json:"posX"`
+	PosY              int                   `json:"posY"`
+	HP                int                   `json:"hp"`
+	MaxHP             int                   `json:"maxHp"`
+	Dexterity         int                   `json:"dexterity"`
+	Strength          int                   `json:"strength"`
+	CurrenWeapon      string                `json:"weapon"`
+	Treasure          int                   `json:"treasure"`
+	CurrentLevelIndex int                   `json:"level"`
+	CountEnemy        int                   `json:"countEnemy"`
+	CountFood         int                   `json:"countFood"`
+	CountElixir       int                   `json:"countElixir"`
+	CountScrollsRead  int                   `json:"countScrollsRead"`
+	CountHits         int                   `json:"countHits"`
+	CountTile         int                   `json:"countTile"`
+	Backpack          map[int][]*ObjectData `json:"backpack"`         // Добавлено поле рюкзака
+	TemporaryEffects  map[string]int        `json:"temporaryEffects"` // Добавлено поле временных эффектов
+	IsSleeping        bool                  `json:"isSleeping"`       // Сохраняем состояние сна
 }
 
 type LevelData struct {
@@ -60,7 +63,7 @@ type TileData struct {
 }
 
 type TunnelData struct {
-	Path [][2]int //Путь
+	Path [][2]int // Путь
 }
 
 type EnemyData struct {
@@ -73,18 +76,18 @@ type EnemyData struct {
 	HostilityEnemy int    `json:"hostilityEnemy"`
 	CurrentRoom    int    `json:"currentRoom"` // индекс комнаты, а не указатель
 	Mode           int    `json:"mode"`
+	Treasure       int    `json:"treasure"` // Сохраняем количество сокровищ
 }
 
-type ItemData struct {
-	TypeItem    string `json:"type"`
-	PosX        int    `json:"posXItem"`
-	PosY        int    `json:"posYItem"`
-	SubtypeItem string `json:"subtypeItem"`
-	// Health      int
-	// MaxHealth   int
-	// Dexterity   int
-	// Strength    int
-	// valueItem   int
+type ObjectData struct {
+	TypeObject    int    `json:"typeObject"`
+	SubtypeObject int    `json:"subtypeObject"`
+	Health        int    `json:"health"`
+	MaxHealth     int    `json:"maxHealth"`
+	Dexterity     int    `json:"dexterity"`
+	Strength      int    `json:"strength"`
+	ValueObject   int    `json:"valueObject"`
+	Damage        string `json:"damage"`
 }
 
 // Менеджер сохранений
@@ -132,6 +135,7 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			CountScrollsRead:  g.Player.CountScrollsRead,
 			CountHits:         g.Player.CountHits,
 			CountTile:         g.Player.CountTile,
+			Backpack:          make(map[int][]*ObjectData),
 		},
 		CurrentLevel: LevelData{
 			Tiles:   make([][]TileData, ScreenWidth),
@@ -173,10 +177,8 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 	}
 	// СОХРАНЯЕМ ВРАГОВ со всеми полями
 	for i, enemy := range g.CurrentLevel.Enemies {
-		// Находим индекс комнаты врага
 		roomIndex := -1
 		for j, room := range g.CurrentLevel.Rooms {
-			// Сравниваем по координатам, а не по указателю
 			if enemy.CurrentRoom != nil &&
 				enemy.CurrentRoom.X1 == room.X1 &&
 				enemy.CurrentRoom.Y1 == room.Y1 &&
@@ -187,7 +189,6 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			}
 		}
 
-		// Сохраняем все поля Enemy
 		saveData.CurrentLevel.Enemies[i] = EnemyData{
 			PosXEnemy:      enemy.PosXEnemy,
 			PosYEnemy:      enemy.PosYEnemy,
@@ -198,8 +199,28 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			HostilityEnemy: enemy.HostilityEnemy,
 			CurrentRoom:    roomIndex,
 			Mode:           enemy.Mode,
+			Treasure:       enemy.Treasure,
 		}
 	}
+	// Сохраняем рюкзак
+	for objectType, objects := range g.Player.Backpack.Objects {
+		for _, object := range objects {
+			saveData.Player.Backpack[objectType] = append(saveData.Player.Backpack[objectType], &ObjectData{
+				TypeObject:    object.TypeObject,
+				SubtypeObject: object.SubtypeObject,
+				Health:        object.Health,
+				MaxHealth:     object.MaxHealth,
+				Dexterity:     object.Dexterity,
+				Strength:      object.Strength,
+				ValueObject:   object.ValueObject,
+				Damage:        object.Damage,
+			})
+		}
+	}
+
+	// Сохраняем временные эффекты
+	saveData.Player.TemporaryEffects = g.Player.TemporaryEffects
+	saveData.Player.IsSleeping = g.Player.IsSleeping // Сохраняем состояние сна
 	// Сохраняем в JSON файл
 	filename := filepath.Join(sm.SaveDir, saveName+".json")
 	data, err := json.MarshalIndent(saveData, "", "  ")
@@ -369,8 +390,8 @@ func (sm *SaveManager) SaveStatistics() error {
 
 // AddStatistic - добавление новой статистики прохождения
 func (sm *SaveManager) AddStatistic(playerName string, reachedLevel int, totalEnemies int,
-	totalTreasure int, totalSteps int, totalPlayTime int, isCompleted bool) {
-
+	totalTreasure int, totalSteps int, totalPlayTime int, isCompleted bool,
+) {
 	stat := StatisticData{
 		PlayerName:    playerName,
 		Timestamp:     time.Now(),

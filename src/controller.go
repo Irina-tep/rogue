@@ -1,11 +1,13 @@
 package main
 
-//Здесь обрабатывается ввод
+// Здесь обрабатывается ввод
 import (
 	"fmt"
 	"log"
 	"math"
 	"math/rand/v2"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rthornton128/goncurses"
@@ -16,7 +18,7 @@ type Controller struct {
 	GameWindow *goncurses.Window
 }
 
-// конструктор
+// конструктор .
 func NewController(game *Game, gameWindow *goncurses.Window) Controller {
 	return Controller{
 		Game:       game,
@@ -32,21 +34,31 @@ func (controller *Controller) HandleInput() {
 	}
 
 	ch := controller.GameWindow.GetChar()
+	controller.Game.AddMessage(fmt.Sprintf("Key pressed: %c", ch)) // Добавляем сообщение о нажатой клавише
 	dx := 0
 	dy := 0
 	switch ch {
-	case 'q', 'Q':
+	case 113, 81: // 'q' и 'Q'
 		// Сохраняем игру перед выходом
 		controller.SaveOnExit()
 		controller.Game.Running = false
-	case 'w', 'W':
+	case 119, 87: // 'w' и 'W'
 		dy = -1
-	case 's', 'S':
+	case 115, 83: // 's' и 'S'
 		dy = 1
-	case 'a', 'A':
+	case 97, 65: // 'a' и 'A'
 		dx = -1
-	case 'd', 'D':
+	case 100, 68: // 'd' и 'D'
 		dx = 1
+	case 'h', 'H': // обработка клавиш для использования предметов (h для оружия, j для еды, k для эликсиров, e для свитков)
+		controller.UseWeapon()
+		return
+	case 'j', 'J':
+		controller.UseFood()
+	case 'k', 'K':
+		controller.UseElixir()
+	case 'e', 'E':
+		controller.UseScroll()
 	}
 	controller.MovePlayer(dx, dy)
 	if dx != 0 || dy != 0 {
@@ -136,26 +148,40 @@ func (c *Controller) StartNewGame() {
 }
 
 func (controller *Controller) MovePlayer(dx int, dy int) {
-	tile := controller.Game.CurrentLevel.Tiles[controller.Game.Player.PosX+dx][controller.Game.Player.PosY+dy] //никогда не выйдет за границы комнаты
+	newX, newY := controller.Game.Player.PosX+dx, controller.Game.Player.PosY+dy
+
+	tile := controller.Game.CurrentLevel.Tiles[newX][newY]
+	for i := 0; i < len(controller.Game.CurrentLevel.Enemies); i++ {
+		if controller.Game.CurrentLevel.Enemies[i].PosXEnemy == newX && controller.Game.CurrentLevel.Enemies[i].PosYEnemy == newY {
+			controller.PlayerAttack(&controller.Game.CurrentLevel.Enemies[i])
+			return //если аттакует, то после этого заканчиваем ход
+		}
+	}
+	// если в тайле враг, то атакуем есои нет , то :
+
 	if !tile.Blocked {
-		controller.Game.Player.PosX += dx
-		controller.Game.Player.PosY += dy
+		controller.Game.Player.PosX = newX
+		controller.Game.Player.PosY = newY
+		controller.Game.Player.CountTile++
+
+		// Проверяем, не наступили ли на портал
 		if tile.Symbol == '%' {
 			if controller.Game.CurrentLevelIndex < CountLevels-1 {
 				controller.Game.UpgradeLevel()
 			} else {
 				controller.Game.StateGame = YouWin
-				// Сохраняем статистику при победе
 				controller.SaveStatistics(true)
 			}
 		}
+
+		// Подбираем предмет, если он есть на клетке
+		controller.PickUpObject()
+		controller.UpdateTiles()
 	}
-	controller.UpdateTiles()
 }
 
 // меняем состояние игры, для этого нужно обновить тайлы. Когда добавляем новые объекты в поле, обновляем тайлы здесь, в рендере не должно быть никакой логики, там только отрисовываются обновленные тайлы
 func (controller *Controller) UpdateTiles() {
-
 	// мы проходим по всем комнатам уровня и формируем их интерьер: стены, пол
 	for _, room := range controller.Game.CurrentLevel.Rooms {
 		x1, x2, y1, y2 := room.Interior()
@@ -172,7 +198,7 @@ func (controller *Controller) UpdateTiles() {
 			}
 		}
 	}
-	//строим клетки с коридорами
+	// строим клетки с коридорами
 	for _, path := range controller.Game.CurrentLevel.Tunnels {
 		for _, coordPath := range path.Path {
 			tunnels, err := NewTile(coordPath[0], coordPath[1], TileTunnel)
@@ -182,7 +208,7 @@ func (controller *Controller) UpdateTiles() {
 			controller.Game.CurrentLevel.Tiles[coordPath[0]][coordPath[1]] = tunnels
 		}
 	}
-	//обновляем клетки с врагами
+	// обновляем клетки с врагами
 	for _, enemy := range controller.Game.CurrentLevel.Enemies {
 		tile, err := NewTile(enemy.PosXEnemy, enemy.PosYEnemy, enemy.TypeEnemy)
 		if err != nil {
@@ -191,7 +217,7 @@ func (controller *Controller) UpdateTiles() {
 		controller.Game.CurrentLevel.Tiles[enemy.PosXEnemy][enemy.PosYEnemy] = tile
 	}
 
-	//обновляем клетку объектов
+	// обновляем клетку объектов
 	for _, object := range controller.Game.CurrentLevel.Objects {
 		symbol := GetObjectSymbol(object.TypeObject)
 		tile, err := NewTile(object.PosX, object.PosY, string(symbol))
@@ -201,7 +227,7 @@ func (controller *Controller) UpdateTiles() {
 		controller.Game.CurrentLevel.Tiles[object.PosX][object.PosY] = tile
 	}
 
-	//обновляем клетку игрока
+	// обновляем клетку игрока
 	player, err := NewTile(controller.Game.Player.PosX, controller.Game.Player.PosY, TilePlayer)
 	if err != nil {
 		log.Fatal(err)
@@ -214,11 +240,9 @@ func (controller *Controller) EnemyFOV() {
 	for i := 0; i < len(controller.Game.CurrentLevel.Enemies); i++ {
 		x1, x2, y1, y2 := controller.Game.CurrentLevel.Enemies[i].CurrentRoom.Interior()
 		if controller.Game.Player.PosX >= x1 && controller.Game.Player.PosX <= x2 && controller.Game.Player.PosY >= y1 && controller.Game.Player.PosY <= y2 {
-			dX := controller.Game.Player.PosX - controller.Game.CurrentLevel.Enemies[i].PosXEnemy
-			dY := controller.Game.Player.PosY - controller.Game.CurrentLevel.Enemies[i].PosYEnemy
-			len := math.Sqrt(math.Pow(float64(dX), 2) + math.Pow(float64(dY), 2))
-			if int(len) <= controller.Game.CurrentLevel.Enemies[i].HostilityEnemy {
+			if controller.isPlayerInRange(&controller.Game.CurrentLevel.Enemies[i]) {
 				controller.Game.CurrentLevel.Enemies[i].Mode = Chasing
+				controller.Game.AddMessage(fmt.Sprintf("%s is chasing you!", controller.Game.CurrentLevel.Enemies[i].TypeEnemy))
 			} else {
 				controller.Game.CurrentLevel.Enemies[i].Mode = Roaming
 			}
@@ -230,24 +254,60 @@ func (controller *Controller) EnemyFOV() {
 	}
 }
 
-func (controller *Controller) EnemyTurn() {
-	for i := 0; i < len(controller.Game.CurrentLevel.Enemies); i++ {
-		x, y := controller.Game.CurrentLevel.Enemies[i].PosXEnemy, controller.Game.CurrentLevel.Enemies[i].PosYEnemy
-		if controller.Game.CurrentLevel.Enemies[i].Mode == Roaming {
-			x, y = controller.Game.CurrentLevel.Enemies[i].EnemyMove()
+func (c *Controller) EnemyTurn() {
+	for i := 0; i < len(c.Game.CurrentLevel.Enemies); i++ {
+		enemy := &c.Game.CurrentLevel.Enemies[i]
 
-		} else if controller.Game.CurrentLevel.Enemies[i].Mode == Chasing {
-			x, y = controller.Game.CurrentLevel.Enemies[i].ChaseTarget(controller.Game.Player.PosX, controller.Game.Player.PosY)
+		// Проверяем, находится ли монстр рядом с игроком
+		dx := math.Abs(float64(enemy.PosXEnemy - c.Game.Player.PosX))
+		dy := math.Abs(float64(enemy.PosYEnemy - c.Game.Player.PosY))
+		if (dx == 1 && dy == 0) || (dx == 0 && dy == 1) {
+			// Монстр атакует игрока
+			enemy.Attack(c.Game.Player, c)
+			continue // Пропускаем перемещение, если монстр атакует
 		}
 
-		tile := controller.Game.CurrentLevel.Tiles[x][y]
-		if !tile.BlockedForEnemy {
-			controller.Game.CurrentLevel.Enemies[i].PosXEnemy = x
-			controller.Game.CurrentLevel.Enemies[i].PosYEnemy = y
-			controller.UpdateTiles()
+		// Перемещаем врага
+		newX, newY := enemy.PosXEnemy, enemy.PosYEnemy
+		if enemy.Mode == Roaming {
+			newX, newY = enemy.EnemyMove()
+		} else if enemy.Mode == Chasing {
+			newX, newY = enemy.ChaseTarget(c.Game.Player.PosX, c.Game.Player.PosY)
+		}
+
+		// Проверяем, можно ли переместиться на новую позицию
+		if !c.Game.CurrentLevel.Tiles[newX][newY].BlockedForEnemy {
+			enemy.PosXEnemy = newX
+			enemy.PosYEnemy = newY
+			c.UpdateTiles()
 		}
 	}
 }
+
+func (c *Controller) isPlayerInRange(enemy *Enemy) bool {
+	dx := c.Game.Player.PosX - enemy.PosXEnemy
+	dy := c.Game.Player.PosY - enemy.PosYEnemy
+	distance := math.Sqrt(float64(dx*dx + dy*dy))
+	return distance <= float64(enemy.HostilityEnemy)
+}
+
+// func (controller *Controller) EnemyTurn() {
+// 	for i := 0; i < len(controller.Game.CurrentLevel.Enemies); i++ {
+// 		x, y := controller.Game.CurrentLevel.Enemies[i].PosXEnemy, controller.Game.CurrentLevel.Enemies[i].PosYEnemy
+// 		if controller.Game.CurrentLevel.Enemies[i].Mode == Roaming {
+// 			x, y = controller.Game.CurrentLevel.Enemies[i].EnemyMove()
+// 		} else if controller.Game.CurrentLevel.Enemies[i].Mode == Chasing {
+// 			x, y = controller.Game.CurrentLevel.Enemies[i].ChaseTarget(controller.Game.Player.PosX, controller.Game.Player.PosY)
+// 		}
+
+// 		tile := controller.Game.CurrentLevel.Tiles[x][y]
+// 		if !tile.BlockedForEnemy {
+// 			controller.Game.CurrentLevel.Enemies[i].PosXEnemy = x
+// 			controller.Game.CurrentLevel.Enemies[i].PosYEnemy = y
+// 			controller.UpdateTiles()
+// 		}
+// 	}
+// }
 
 // HandleSave - сохранение игры
 func (c *Controller) HandleSave() {
@@ -319,4 +379,262 @@ func (c *Controller) SaveStatistics(isCompleted bool) {
 	)
 
 	c.Game.AddMessage(fmt.Sprintf("Statistics saved. Reached level: %d", c.Game.Player.CurrentLevelIndex))
+}
+
+// метод для подбора предметов с поля
+func (c *Controller) PickUpObject() {
+	for i, obj := range c.Game.CurrentLevel.Objects {
+		if obj.PosX == c.Game.Player.PosX && obj.PosY == c.Game.Player.PosY {
+			if c.Game.Player.Backpack.AddObject(obj) {
+				c.Game.AddMessage(fmt.Sprintf("Picked up %s", GetObjectSymbol(obj.TypeObject)))
+				// Удаляем предмет с уровня
+				c.Game.CurrentLevel.Objects = append(
+					c.Game.CurrentLevel.Objects[:i],
+					c.Game.CurrentLevel.Objects[i+1:]...,
+				)
+				c.UpdateTiles()
+				return
+			} else {
+				c.Game.AddMessage("Backpack is full for this object type!")
+				return
+			}
+		}
+	}
+}
+
+// метод для добавления сокровищ игроку
+func (controller *Controller) AddTreasure(amount int) {
+	controller.Game.Player.Treasure += amount
+	controller.Game.AddMessage(fmt.Sprintf("Gained %d treasure!", amount))
+}
+
+// Использование еды
+func (c *Controller) UseFood() {
+	objects := c.Game.Player.Backpack.GetObjects(FOOD)
+	if len(objects) == 0 {
+		c.Game.AddMessage("No food in backpack!")
+		return
+	}
+
+	selectedObject, _ := c.Game.Player.Backpack.UseObject(FOOD, 0)
+	if selectedObject != nil {
+		c.Game.Player.HP += selectedObject.Health
+		if c.Game.Player.HP > c.Game.Player.MaxHP {
+			c.Game.Player.HP = c.Game.Player.MaxHP
+		}
+		c.Game.Player.CountFood++
+		c.Game.AddMessage(fmt.Sprintf("Ate food. HP: %d/%d", c.Game.Player.HP, c.Game.Player.MaxHP))
+	}
+}
+
+func (c *Controller) UseElixir() {
+	objects := c.Game.Player.Backpack.GetObjects(ELEXIR)
+	if len(objects) == 0 {
+		c.Game.AddMessage("No elixirs in backpack!")
+		return
+	}
+
+	selectedObject, _ := c.Game.Player.Backpack.UseObject(ELEXIR, 0)
+	if selectedObject != nil {
+		switch selectedObject.SubtypeObject {
+		case DEXTERITY_ELIXIR:
+			c.Game.Player.Dexterity += selectedObject.Dexterity
+			c.Game.AddMessage(fmt.Sprintf("Drank Dexterity Elixir. Dexterity: %d", c.Game.Player.Dexterity))
+		case STRENGTH_ELIXIR:
+			c.Game.Player.Strength += selectedObject.Strength
+			c.Game.AddMessage(fmt.Sprintf("Drank Strength Elixir. Strength: %d", c.Game.Player.Strength))
+		}
+		c.Game.Player.CountElixir++
+	}
+}
+
+func (c *Controller) UseScroll() {
+	objects := c.Game.Player.Backpack.GetObjects(SCROL)
+	if len(objects) == 0 {
+		c.Game.AddMessage("No scrolls in backpack!")
+		return
+	}
+
+	selectedObject, _ := c.Game.Player.Backpack.UseObject(SCROL, 0)
+	if selectedObject != nil {
+		switch selectedObject.SubtypeObject {
+		case DEXTERITY_SCROL:
+			c.Game.Player.Dexterity += selectedObject.Dexterity
+			c.Game.AddMessage(fmt.Sprintf("Read Dexterity Scroll. Dexterity: %d", c.Game.Player.Dexterity))
+		case STRENGTH_SCROL:
+			c.Game.Player.Strength += selectedObject.Strength
+			c.Game.AddMessage(fmt.Sprintf("Read Strength Scroll. Strength: %d", c.Game.Player.Strength))
+		case HEALTH_SCROL:
+			c.Game.Player.MaxHP += selectedObject.MaxHealth
+			c.Game.Player.HP += selectedObject.MaxHealth
+			c.Game.AddMessage(fmt.Sprintf("Read Health Scroll. Max HP: %d, HP: %d", c.Game.Player.MaxHP, c.Game.Player.HP))
+		}
+		c.Game.Player.CountScrollsRead++
+	}
+}
+
+func (c *Controller) UseWeapon() {
+	objects := c.Game.Player.Backpack.GetObjects(WEAPON)
+	if len(objects) == 0 {
+		c.Game.AddMessage("No weapons in backpack!")
+		return
+	}
+
+	selectedObject, _ := c.Game.Player.Backpack.UseObject(WEAPON, 0)
+	if selectedObject != nil {
+		// Если у игрока уже было оружие, бросаем его на пол
+		if c.Game.Player.CurrenWeapon != "1d1" {
+			oldWeapon := &Object{
+				TypeObject: WEAPON,
+				Damage:     c.Game.Player.CurrenWeapon,
+				PosX:       c.Game.Player.PosX + 1,
+				PosY:       c.Game.Player.PosY,
+			}
+			c.Game.CurrentLevel.Objects = append(c.Game.CurrentLevel.Objects, oldWeapon)
+			c.Game.AddMessage(fmt.Sprintf("Dropped old weapon %s", oldWeapon.Damage))
+		}
+
+		c.Game.Player.CurrenWeapon = selectedObject.Damage
+		c.Game.AddMessage(fmt.Sprintf("Equipped %s (Damage: %s)", GetObjectSymbol(selectedObject.TypeObject), selectedObject.Damage))
+	} else {
+		c.Game.Player.CurrenWeapon = "1d1"
+		c.Game.AddMessage("Unequipped weapon")
+	}
+}
+
+// Применение эффектов предмета
+func (c *Controller) ApplyObjectEffect(object *Object) {
+	if object == nil {
+		return
+	}
+
+	switch object.TypeObject {
+	case ELEXIR:
+		// Временное увеличение характеристик
+		if c.Game.Player.TemporaryEffects == nil {
+			c.Game.Player.TemporaryEffects = make(map[string]int)
+		}
+		c.Game.Player.TemporaryEffects["dexterity"] = object.Dexterity
+		c.Game.Player.TemporaryEffects["strength"] = object.Strength
+		c.Game.Player.CountElixir++
+		c.Game.AddMessage(fmt.Sprintf("Drank elixir. Dexterity: %d, Strength: %d (temporary)", c.Game.Player.Dexterity, c.Game.Player.Strength))
+	}
+}
+
+// механизм временных эффектов и их истечения
+func (c *Controller) DecreaseTemporaryEffects(player *Player) {
+	if player.TemporaryEffects == nil {
+		return
+	}
+
+	for effectType, duration := range player.TemporaryEffects {
+		if duration <= 0 {
+			delete(player.TemporaryEffects, effectType)
+		} else {
+			player.TemporaryEffects[effectType] = duration - 1
+		}
+	}
+
+	// Если здоровье игрока упало до 0 или ниже, восстанавливаем до 1
+	if player.HP <= 0 {
+		player.HP = 1
+	}
+}
+
+// метод для проверки вероятности попадания в зависимости от ловкости атакующего и цели
+func (c *Controller) IsHit(attackerDexterity, targetDexterity int) bool {
+	// Вероятность попадания зависит от ловкости
+	hitChance := 70 + attackerDexterity - targetDexterity
+	if hitChance > 90 {
+		hitChance = 90
+	} else if hitChance < 10 {
+		hitChance = 10
+	}
+	return GeneratorNum(0, 100) < hitChance
+}
+
+// метод для расчета урона в зависимости от силы и оружи
+func (c *Controller) CalculateDamage(attackerStrength int, weaponDamage string) int {
+	baseDamage := attackerStrength / 2
+
+	// Разбор урона оружия (например, "1d6")
+	if weaponDamage != "1d1" {
+		parts := strings.Split(weaponDamage, "d")
+		if len(parts) == 2 {
+			dice, _ := strconv.Atoi(parts[0])
+			sides, _ := strconv.Atoi(parts[1])
+			weaponDamageValue := 0
+			for i := 0; i < dice; i++ {
+				weaponDamageValue += GeneratorNum(1, sides)
+			}
+			baseDamage += weaponDamageValue
+		}
+	}
+
+	return baseDamage
+}
+
+func (c *Controller) ApplyTemporaryEffect(player *Player, effectType string, value int, duration int) {
+	if player.TemporaryEffects == nil {
+		player.TemporaryEffects = make(map[string]int)
+	}
+	player.TemporaryEffects[effectType] = duration
+
+	switch effectType {
+	case "dexterity":
+		player.Dexterity += value
+	case "strength":
+		player.Strength += value
+	}
+}
+
+// PlayerAttack обрабатывает атаку игрока на врага с учетом всех особенностей
+func (c *Controller) PlayerAttack(enemy *Enemy) {
+	// Проверка попадания
+	hitChance := 70 + c.Game.Player.Dexterity - enemy.DexterityEnemy
+	if hitChance > 90 {
+		hitChance = 90
+	} else if hitChance < 10 {
+		hitChance = 10
+	}
+
+	if GeneratorNum(0, 100) > hitChance {
+		c.Game.AddMessage("You missed!")
+		return
+	}
+
+	// Рассчитываем урон
+	damage := c.Game.Player.Strength
+	if c.Game.Player.CurrenWeapon != "1d1" {
+		parts := strings.Split(c.Game.Player.CurrenWeapon, "d")
+		if len(parts) == 2 {
+			dice, _ := strconv.Atoi(parts[0])
+			sides, _ := strconv.Atoi(parts[1])
+			weaponDamageValue := 0
+			for i := 0; i < dice; i++ {
+				weaponDamageValue += GeneratorNum(1, sides)
+			}
+			damage += weaponDamageValue
+		}
+	}
+
+	enemy.HealthEnemy -= damage
+	c.Game.AddMessage(fmt.Sprintf("You hit %s for %d damage!", enemy.TypeEnemy, damage))
+
+	// Проверяем, умер ли враг
+	if enemy.HealthEnemy <= 0 {
+		c.Game.AddMessage(fmt.Sprintf("You defeated %s!", enemy.TypeEnemy))
+
+		// Удаляем врага с уровня
+		for i, e := range c.Game.CurrentLevel.Enemies {
+			if e.PosXEnemy == enemy.PosXEnemy && e.PosYEnemy == enemy.PosYEnemy {
+				c.Game.CurrentLevel.Enemies = append(c.Game.CurrentLevel.Enemies[:i], c.Game.CurrentLevel.Enemies[i+1:]...)
+				break
+			}
+		}
+
+		c.Game.Player.Treasure += enemy.Treasure
+		c.Game.Player.CountEnemy++
+		c.UpdateTiles()
+	}
 }
