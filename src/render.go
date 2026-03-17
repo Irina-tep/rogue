@@ -4,7 +4,6 @@ package main
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/rthornton128/goncurses"
 )
@@ -45,9 +44,9 @@ func (r *Renderer) Init() error {
 	// Создаем окно для игровой области (80x50)
 	r.GameWindow = stdscr.Sub(ScreenHeight+2, ScreenWidth+2, 5, 0) // координаты левого верхнего угла 0 0
 	// Окно для сообщений (5 строк внизу)
-	r.MessageWindow = stdscr.Sub(5, ScreenWidth+2, ScreenHeight+1, 0)
+	r.MessageWindow = stdscr.Sub(ScreenHeight+7, 35, 0, ScreenWidth+2)
 	// Окно для статуса (5 строк сверху)
-	r.StatusWindow = stdscr.Sub(5, ScreenWidth+1, 0, 0)
+	r.StatusWindow = stdscr.Sub(5, ScreenWidth+2, 0, 0)
 	return nil
 }
 
@@ -72,7 +71,7 @@ func (r *Renderer) Render(g *Game) {
 		r.GameWindow.Refresh()
 		r.MessageWindow.Refresh()
 		// Ждем 10 секунд (блокирует игру)
-		time.Sleep(10 * time.Second)
+		// time.Sleep(10 * time.Second)
 	} else if g.StateGame == YouLose {
 		message := "You Lose!"
 		startX := ScreenWidth/2 - len(message)
@@ -82,7 +81,7 @@ func (r *Renderer) Render(g *Game) {
 		r.GameWindow.Refresh()
 		r.MessageWindow.Refresh()
 		// Ждем 10 секунд (блокирует игру)
-		time.Sleep(10 * time.Second)
+		// time.Sleep(10 * time.Second)
 	} else if g.StateGame == MainMenu {
 		// Отрисовываем главное меню
 		title := "ROGUE-LIKE GAME"
@@ -109,8 +108,6 @@ func (r *Renderer) Render(g *Game) {
 			}
 		}
 	} else {
-		// Определяем видимость
-		g.CurrentLevel.CalculateVisibility(g.Player.PosX, g.Player.PosY, 8) // Радиус видимости
 		// Отрисовываем уровень
 
 		for x := 0; x < len(g.CurrentLevel.Tiles); x++ {
@@ -118,32 +115,18 @@ func (r *Renderer) Render(g *Game) {
 				tile := g.CurrentLevel.Tiles[x][y]
 				// Если это позиция игрока, всегда отображаем игрока
 				if x == g.Player.PosX && y == g.Player.PosY {
-					//colorPair := getEnemyColor(string(tile.Symbol))
 					r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
-					//r.GameWindow.ColorOff(colorPair)
+				} else if g.CurrentLevel.Visible[x][y] {
+					// Клетка видима в данный момент
+					r.GameWindow.AttrOn(tile.ColorAttr | goncurses.A_BOLD)
+					r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
+					r.GameWindow.AttrOff(tile.ColorAttr | goncurses.A_BOLD)
 				} else if g.CurrentLevel.Explored[x][y] {
-					// Проверяем, находится ли игрок в текущей комнате
-					inPlayerRoom := false
-					for _, room := range g.CurrentLevel.Rooms {
-						if x >= room.X1 && x <= room.X2 && y >= room.Y1 && y <= room.Y2 &&
-							g.Player.PosX >= room.X1 && g.Player.PosX <= room.X2 &&
-							g.Player.PosY >= room.Y1 && g.Player.PosY <= room.Y2 {
-							inPlayerRoom = true
-							break
-						}
-					}
-
-					if inPlayerRoom {
-						r.GameWindow.AttrOn(tile.ColorAttr | goncurses.A_BOLD)
+					// Клетка исследована, но не видима: отображаем только стены и тоннели
+					if tile.Symbol == '|' || tile.Symbol == '-' || tile.Symbol == '#' {
 						r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
-						r.GameWindow.AttrOff(tile.ColorAttr | goncurses.A_BOLD)
 					} else {
-						// Если комната ранее исследована, но игрок не в ней, отображаем только стены и тоннели
-						if tile.Symbol == '|' || tile.Symbol == '-' || tile.Symbol == '#' {
-							r.GameWindow.MovePrint(y+1, x+1, string(tile.Symbol))
-						} else {
-							r.GameWindow.MovePrint(y+1, x+1, " ")
-						}
+						r.GameWindow.MovePrint(y+1, x+1, " ")
 					}
 				} else {
 					// Если область не исследована, отображаем пустоту
@@ -161,7 +144,7 @@ func (r *Renderer) Render(g *Game) {
 
 		// Отрисовываем сообщения (последние 4 сообщения)
 		msgY := 1
-		start := len(g.Messages) - 4
+		start := len(g.Messages) - 10
 		if start < 0 {
 			start = 0
 		}

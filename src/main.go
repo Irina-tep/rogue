@@ -175,16 +175,37 @@ func (g *Game) LoadFromSave(saveData *SaveData) error {
 
 	// Создаем новый уровень
 	g.CurrentLevel = &Level{
-		Tiles:   make([][]Tile, ScreenWidth),
-		Rooms:   make([]Room, len(saveData.CurrentLevel.Rooms)),
-		Tunnels: make([]Tunnel, len(saveData.CurrentLevel.Tunnels)),
-		Enemies: make([]Enemy, len(saveData.CurrentLevel.Enemies)),
-		Number:  saveData.CurrentLevel.Number,
+		Tiles:    make([][]Tile, ScreenWidth),
+		Rooms:    make([]Room, len(saveData.CurrentLevel.Rooms)),
+		Tunnels:  make([]Tunnel, len(saveData.CurrentLevel.Tunnels)),
+		Enemies:  make([]Enemy, len(saveData.CurrentLevel.Enemies)),
+		Number:   saveData.CurrentLevel.Number,
+		Explored: make([][]bool, ScreenWidth),
+		Visible:  make([][]bool, ScreenWidth),
 	}
 
 	// Инициализируем матрицу тайлов
 	for x := 0; x < ScreenWidth; x++ {
 		g.CurrentLevel.Tiles[x] = make([]Tile, ScreenHeight)
+	}
+
+	// Инициализируем и восстанавливаем исследованные и видимые области
+	for x := 0; x < ScreenWidth; x++ {
+		g.CurrentLevel.Explored[x] = make([]bool, ScreenHeight)
+		g.CurrentLevel.Visible[x] = make([]bool, ScreenHeight)
+		for y := 0; y < ScreenHeight; y++ {
+			// Проверяем, есть ли данные в сохранении
+			if x < len(saveData.CurrentLevel.Explored) && y < len(saveData.CurrentLevel.Explored[x]) {
+				g.CurrentLevel.Explored[x][y] = saveData.CurrentLevel.Explored[x][y]
+			} else {
+				g.CurrentLevel.Explored[x][y] = false
+			}
+			if x < len(saveData.CurrentLevel.Visible) && y < len(saveData.CurrentLevel.Visible[x]) {
+				g.CurrentLevel.Visible[x][y] = saveData.CurrentLevel.Visible[x][y]
+			} else {
+				g.CurrentLevel.Visible[x][y] = false
+			}
+		}
 	}
 
 	// ВОССТАНАВЛИВАЕМ ТАЙЛЫ - конвертируем из TileData в Tile

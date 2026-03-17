@@ -1,0 +1,42 @@
+[
+  {
+    "playerName": "Player",
+    "timestamp": "2026-03-18T00:21:10.971032778+03:00",
+    "reachedLevel": 1,
+    "totalEnemies": 1,
+    "totalTreasure": 10,
+    "totalSteps": 160,
+    "totalPlayTime": 33,
+    "isCompleted": false
+  },
+  {
+    "playerName": "Player",
+    "timestamp": "2026-03-18T00:20:36.291999816+03:00",
+    "reachedLevel": 1,
+    "totalEnemies": 0,
+    "totalTreasure": 0,
+    "totalSteps": 253,
+    "totalPlayTime": 4,
+    "isCompleted": false
+  },
+  {
+    "playerName": "Player",
+    "timestamp": "2026-03-18T00:14:58.33465375+03:00",
+    "reachedLevel": 1,
+    "totalEnemies": 0,
+    "totalTreasure": 0,
+    "totalSteps": 0,
+    "totalPlayTime": 6,
+    "isCompleted": false
+  },
+  {
+    "playerName": "Player",
+    "timestamp": "2026-03-18T00:19:57.782608699+03:00",
+    "reachedLevel": 1,
+    "totalEnemies": 0,
+    "totalTreasure": 0,
+    "totalSteps": 253,
+    "totalPlayTime": 25,
+    "isCompleted": false
+  }
+]

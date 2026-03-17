@@ -177,6 +177,7 @@ func (controller *Controller) MovePlayer(dx int, dy int) {
 		// Подбираем предмет, если он есть на клетке
 		controller.PickUpObject()
 		controller.UpdateTiles()
+		controller.UpdateVisibility()
 	}
 }
 
@@ -232,7 +233,48 @@ func (controller *Controller) UpdateTiles() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	controller.Game.CurrentLevel.Tiles[controller.Game.Player.PosX][controller.Game.Player.PosY] = player
+}
+
+// UpdateVisibility обновляет видимые клетки на основе позиции игрока
+func (c *Controller) UpdateVisibility() {
+	level := c.Game.CurrentLevel
+	playerX, playerY := c.Game.Player.PosX, c.Game.Player.PosY
+
+	// Очищаем видимые клетки
+	for x := 0; x < ScreenWidth; x++ {
+		for y := 0; y < ScreenHeight; y++ {
+			level.Visible[x][y] = false
+		}
+	}
+
+	// Определяем комнату, в которой находится игрок
+	playerRoom := level.FindRoomContaining(playerX, playerY)
+
+	// Радиус видимости
+	radius := 8
+
+	// Обновляем исследованные области (туман войны)
+	level.CalculateVisibility(playerX, playerY, radius)
+
+	// Устанавливаем видимые клетки
+	for x := 0; x < ScreenWidth; x++ {
+		for y := 0; y < ScreenHeight; y++ {
+			// Если клетка в той же комнате, что и игрок, она видима
+			if playerRoom != nil && x >= playerRoom.X1 && x <= playerRoom.X2 && y >= playerRoom.Y1 && y <= playerRoom.Y2 {
+				level.Visible[x][y] = true
+				continue
+			}
+
+			// Для клеток вне комнаты игрока проверяем видимость только если они очень близко
+			// и есть прямая видимость без блокировок
+			distance := (x-playerX)*(x-playerX) + (y-playerY)*(y-playerY)
+			if distance <= radius*radius && level.HasLineOfSight(playerX, playerY, x, y) { // радиус 3 клетки
+				level.Visible[x][y] = true
+			}
+		}
+	}
 }
 
 // область видимости врагов, меняет режим врага на преследование
@@ -280,6 +322,7 @@ func (c *Controller) EnemyTurn() {
 			enemy.PosXEnemy = newX
 			enemy.PosYEnemy = newY
 			c.UpdateTiles()
+			c.UpdateVisibility()
 		}
 	}
 }
@@ -484,14 +527,26 @@ func (c *Controller) UseWeapon() {
 	if selectedObject != nil {
 		// Если у игрока уже было оружие, бросаем его на пол
 		if c.Game.Player.CurrenWeapon != "1d1" {
-			oldWeapon := &Object{
-				TypeObject: WEAPON,
-				Damage:     c.Game.Player.CurrenWeapon,
-				PosX:       c.Game.Player.PosX + 1,
-				PosY:       c.Game.Player.PosY,
+			neighbor := []Tile{
+				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX+1][c.Game.Player.PosY],
+				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX][c.Game.Player.PosY+1],
+				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX-1][c.Game.Player.PosY],
+				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX][c.Game.Player.PosY-1],
 			}
-			c.Game.CurrentLevel.Objects = append(c.Game.CurrentLevel.Objects, oldWeapon)
-			c.Game.AddMessage(fmt.Sprintf("Dropped old weapon %s", oldWeapon.Damage))
+			for _, tileNeighbor := range neighbor {
+				if !tileNeighbor.Blocked {
+					NewPosX, NewPosY := tileNeighbor.PosX, tileNeighbor.PosY
+					oldWeapon := &Object{
+						TypeObject: WEAPON,
+						Damage:     c.Game.Player.CurrenWeapon,
+						PosX:       NewPosX,
+						PosY:       NewPosY,
+					}
+					c.Game.CurrentLevel.Objects = append(c.Game.CurrentLevel.Objects, oldWeapon)
+					c.Game.AddMessage(fmt.Sprintf("Dropped old weapon %s", oldWeapon.Damage))
+					break
+				}
+			}
 		}
 
 		c.Game.Player.CurrenWeapon = selectedObject.Damage

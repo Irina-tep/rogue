@@ -40,11 +40,13 @@ type PlayerData struct {
 }
 
 type LevelData struct {
-	Tiles   [][]TileData `json:"tiles"`       // Матрица тайлов
-	Rooms   []RoomData   `json:"rooms"`       // Комнаты
-	Tunnels []TunnelData `json:"tunnels"`     // Туннели
-	Enemies []EnemyData  `json:"enemies"`     // Враги
-	Number  int          `json:"numberLevel"` // Номер уровня
+	Tiles    [][]TileData `json:"tiles"`       // Матрица тайлов
+	Rooms    []RoomData   `json:"rooms"`       // Комнаты
+	Tunnels  []TunnelData `json:"tunnels"`     // Туннели
+	Enemies  []EnemyData  `json:"enemies"`     // Враги
+	Number   int          `json:"numberLevel"` // Номер уровня
+	Explored [][]bool     `json:"explored"`    // Исследованные области
+	Visible  [][]bool     `json:"visible"`     // Видимые в данный момент области
 }
 
 type RoomData struct {
@@ -138,11 +140,13 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			Backpack:          make(map[int][]*ObjectData),
 		},
 		CurrentLevel: LevelData{
-			Tiles:   make([][]TileData, ScreenWidth),
-			Rooms:   make([]RoomData, len(g.CurrentLevel.Rooms)),
-			Tunnels: make([]TunnelData, len(g.CurrentLevel.Tunnels)),
-			Enemies: make([]EnemyData, len(g.CurrentLevel.Enemies)),
-			Number:  g.CurrentLevel.Number,
+			Tiles:    make([][]TileData, ScreenWidth),
+			Rooms:    make([]RoomData, len(g.CurrentLevel.Rooms)),
+			Tunnels:  make([]TunnelData, len(g.CurrentLevel.Tunnels)),
+			Enemies:  make([]EnemyData, len(g.CurrentLevel.Enemies)),
+			Number:   g.CurrentLevel.Number,
+			Explored: make([][]bool, ScreenWidth),
+			Visible:  make([][]bool, ScreenWidth),
 		},
 	}
 
@@ -158,6 +162,15 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 				Symbol:          tile.Symbol,
 				BlockedForEnemy: tile.BlockedForEnemy,
 			}
+		}
+	}
+	// Сохраняем исследованные и видимые области
+	for x := 0; x < ScreenWidth; x++ {
+		saveData.CurrentLevel.Explored[x] = make([]bool, ScreenHeight)
+		saveData.CurrentLevel.Visible[x] = make([]bool, ScreenHeight)
+		for y := 0; y < ScreenHeight; y++ {
+			saveData.CurrentLevel.Explored[x][y] = g.CurrentLevel.Explored[x][y]
+			saveData.CurrentLevel.Visible[x][y] = g.CurrentLevel.Visible[x][y]
 		}
 	}
 	// Сохраняем комнаты
@@ -225,12 +238,12 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 	filename := filepath.Join(sm.SaveDir, saveName+".json")
 	data, err := json.MarshalIndent(saveData, "", "  ")
 	if err != nil {
-		return fmt.Errorf("ошибка сериализации: %v", err)
+		return fmt.Errorf("serialization error: %v", err)
 	}
 
 	err = ioutil.WriteFile(filename, data, 0644)
 	if err != nil {
-		return fmt.Errorf("ошибка записи файла: %v", err)
+		return fmt.Errorf("file write error: %v", err)
 	}
 
 	sm.Current = saveData
@@ -299,12 +312,12 @@ func (sm *SaveManager) LoadGame(filename string) (*SaveData, error) {
 	filepath := sm.GetSavePath(filename)
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка чтения файла сохранения: %v", err)
+		return nil, fmt.Errorf("error reading file while saving: %v", err)
 	}
 
 	var saveData SaveData
 	if err := json.Unmarshal(data, &saveData); err != nil {
-		return nil, fmt.Errorf("ошибка десериализации сохранения: %v", err)
+		return nil, fmt.Errorf("save deserialization error: %v", err)
 	}
 
 	sm.Current = &saveData
@@ -319,7 +332,7 @@ func (sm *SaveManager) GetLatestSave() (*SaveData, error) {
 	}
 
 	if len(saves) == 0 {
-		return nil, fmt.Errorf("сохранения не найдены")
+		return nil, fmt.Errorf("no saves found")
 	}
 
 	// Сортируем по времени (последние сохранения первыми)
@@ -359,12 +372,12 @@ func (sm *SaveManager) LoadStatistics() error {
 
 	data, err := ioutil.ReadFile(statsFile)
 	if err != nil {
-		return fmt.Errorf("ошибка чтения файла статистики: %v", err)
+		return fmt.Errorf("error reading statistics file: %v", err)
 	}
 
 	var stats []StatisticData
 	if err := json.Unmarshal(data, &stats); err != nil {
-		return fmt.Errorf("ошибка десериализации статистики: %v", err)
+		return fmt.Errorf("statistics deserialization error: %v", err)
 	}
 
 	sm.Statistics = stats
@@ -377,11 +390,11 @@ func (sm *SaveManager) SaveStatistics() error {
 	statsFile := filepath.Join(sm.SaveDir, "statistics.json")
 	data, err := json.MarshalIndent(sm.Statistics, "", "  ")
 	if err != nil {
-		return fmt.Errorf("ошибка сериализации статистики: %v", err)
+		return fmt.Errorf("statistics serialization error: %v", err)
 	}
 
 	if err := ioutil.WriteFile(statsFile, data, 0644); err != nil {
-		return fmt.Errorf("ошибка записи файла статистики: %v", err)
+		return fmt.Errorf("error writing statistics file: %v", err)
 	}
 
 	Leaderboard = sm.Statistics

@@ -16,14 +16,17 @@ type Level struct {
 	Objects  []*Object
 	Number   int      // номер уровня
 	Explored [][]bool // Матрица исследованных областей
+	Visible  [][]bool // Матрица видимых в данный момент областей
 }
 
 // конструктор Level
 func NewLevel() Level {
 	l := Level{}
 	l.Explored = make([][]bool, ScreenWidth)
+	l.Visible = make([][]bool, ScreenWidth)
 	for i := range l.Explored {
 		l.Explored[i] = make([]bool, ScreenHeight)
+		l.Visible[i] = make([]bool, ScreenHeight)
 	}
 	l.CreateRooms()
 	l.CreateTunnels()
@@ -288,36 +291,20 @@ func (level *Level) CreateObjects() {
 	}
 }
 
-//Туман-туманыч
-
-func (l *Level) CalculateVisibility(playerX, playerY int, radius int) {
-	// Определяем видимость в пределах радиуса
-	for x := 0; x < ScreenWidth; x++ {
-		for y := 0; y < ScreenHeight; y++ {
-			distance := (x-playerX)*(x-playerX) + (y-playerY)*(y-playerY)
-			if distance <= radius*radius && bresenham(playerX, playerY, x, y) {
-				l.Explored[x][y] = true
-			}
+// FindRoomContaining возвращает комнату, содержащую указанные координаты, или nil если не найдено
+func (level *Level) FindRoomContaining(x, y int) *Room {
+	for i := range level.Rooms {
+		room := &level.Rooms[i]
+		if x >= room.X1 && x <= room.X2 && y >= room.Y1 && y <= room.Y2 {
+			return room
 		}
 	}
-
-	// Проверяем, находится ли игрок рядом со входом в комнату
-	for _, room := range l.Rooms {
-		if (playerX == room.X1 || playerX == room.X2) && (math.Abs(float64(playerY-room.Y1)) <= 1 || math.Abs(float64(playerY-room.Y2)) <= 1) ||
-			(playerY == room.Y1 || playerY == room.Y2) && (math.Abs(float64(playerX-room.X1)) <= 1 || math.Abs(float64(playerX-room.X2)) <= 1) {
-			// Рассеиваем туман в пределах видимости комнаты
-			for x := room.X1; x <= room.X2; x++ {
-				for y := room.Y1; y <= room.Y2; y++ {
-					if bresenham(playerX, playerY, x, y) {
-						l.Explored[x][y] = true
-					}
-				}
-			}
-		}
-	}
+	return nil
 }
 
-func bresenham(x0, y0, x1, y1 int) bool {
+//Туман-туманыч
+
+func (l *Level) HasLineOfSight(x0, y0, x1, y1 int) bool {
 	dx := math.Abs(float64(x1 - x0))
 	dy := -math.Abs(float64(y1 - y0))
 	sx := 1
@@ -330,24 +317,79 @@ func bresenham(x0, y0, x1, y1 int) bool {
 	}
 	err := dx + dy
 
+	// Начинаем с первой точки
+	curX, curY := x0, y0
+
 	for {
-		if x0 == x1 && y0 == y1 {
-			return true
+		// Пропускаем проверку для начальной точки
+		if curX == x0 && curY == y0 {
+			// ничего не делаем
+		} else {
+			// Если достигли конечной точки, возвращаем true
+			if curX == x1 && curY == y1 {
+				return true
+			}
+			// Проверяем, не блокирует ли текущая клетка видимость
+			if curX >= 0 && curX < ScreenWidth && curY >= 0 && curY < ScreenHeight {
+				if l.Tiles[curX][curY].Blocked {
+					return false
+				}
+			}
 		}
+
 		e2 := 2 * err
 		if e2 >= dy {
-			if x0 == x1 {
+			if curX == x1 {
 				return false
 			}
 			err += dy
-			x0 += sx
+			curX += sx
 		}
 		if e2 <= dx {
-			if y0 == y1 {
+			if curY == y1 {
 				return false
 			}
 			err += dx
-			y0 += sy
+			curY += sy
+		}
+	}
+}
+
+func (l *Level) CalculateVisibility(playerX, playerY int, radius int) {
+	// Сначала находим комнату, в которой находится игрок
+	playerRoom := l.FindRoomContaining(playerX, playerY)
+
+	// Если игрок находится в комнате, отмечаем всю комнату как исследованную
+	if playerRoom != nil {
+		for x := playerRoom.X1; x <= playerRoom.X2; x++ {
+			for y := playerRoom.Y1; y <= playerRoom.Y2; y++ {
+				l.Explored[x][y] = true
+			}
+		}
+	}
+
+	// Определяем видимость в пределах радиуса с учётом препятствий
+	for x := 0; x < ScreenWidth; x++ {
+		for y := 0; y < ScreenHeight; y++ {
+			distance := (x-playerX)*(x-playerX) + (y-playerY)*(y-playerY)
+			if distance <= radius*radius && l.HasLineOfSight(playerX, playerY, x, y) {
+				l.Explored[x][y] = true
+			}
+		}
+	}
+
+	// Проверяем, находится ли игрок рядом со входом в комнату (даже если не внутри)
+	for _, room := range l.Rooms {
+		if (playerX == room.X1 || playerX == room.X2) && (math.Abs(float64(playerY-room.Y1)) <= 1 || math.Abs(float64(playerY-room.Y2)) <= 1) ||
+			(playerY == room.Y1 || playerY == room.Y2) && (math.Abs(float64(playerX-room.X1)) <= 1 || math.Abs(float64(playerX-room.X2)) <= 1) {
+			// Рассеиваем туман в пределах видимости комнаты
+			for x := room.X1; x <= room.X2; x++ {
+				for y := room.Y1; y <= room.Y2; y++ {
+					if l.HasLineOfSight(playerX, playerY, x, y) {
+						l.Explored[x][y] = true
+					}
+				}
+			}
 		}
 	}
 }
