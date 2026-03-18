@@ -21,9 +21,10 @@ type Game struct {
 	Messages          []string
 	Seed              uint64       // чтобы при запуске игры не генерировались одни и те же параметры, одна и та же последовательность
 	RNG               *rand.Rand   // для генерации
-	Running           bool         // тру - игра активна , если нет - программа заверщается
-	StateGame         int          // сотояние игры
-	SaveManager       *SaveManager // Добавляем менеджер сохранений
+	Running           bool         // true - игра активна, если нет - программа завершается
+	StateGame         int          // состояние игры
+	SaveManager       *SaveManager // Менеджер сохранений
+	Renderer          *Renderer    // Рендерер
 }
 
 // сотояния игры
@@ -40,9 +41,8 @@ func NewGame(state int) *Game {
 		Seed:        (uint64)(time.Now().UnixNano()),
 		Running:     true,
 		StateGame:   state,
-		SaveManager: NewSaveManager(), // Инициализируем
+		SaveManager: NewSaveManager(), // Инициализируем менеджер сохранений
 	}
-
 	// Если это не меню, инициализируем уровни и игрока
 	if state != MainMenu {
 		g.RNG = rand.New(rand.NewPCG(g.Seed, 10))
@@ -50,22 +50,19 @@ func NewGame(state int) *Game {
 		for i := 0; i < CountLevels; i++ {
 			level := NewLevel()
 			level.Number = i
-			g.Levels = append(g.Levels, level) // Теперь игра загрузит нашу карту в качестве первого уровня. Использовть это, если мы будем делать слайс Level в структуре Game
+			g.Levels = append(g.Levels, level)
 		}
 		// Инициализируем уровень
 		g.CurrentLevelIndex = 0
 		g.CurrentLevel = &g.Levels[0]
-		// поместить игрока в рандомное место в первой комнате
-		// startX, startY := g.CurrentLevel.Rooms[0].RandomPos()
+		// Создаем игрока
 		startX, startY := g.CurrentLevel.GetPos()
 		player := NewPlayer(startX, startY, g.CurrentLevelIndex)
 		g.Player = &player
-
 		// Добавляем сообщения
 		g.AddMessage("Start game!")
 		g.AddMessage("Use WASD for action, q for exit")
 	}
-
 	return g
 }
 
@@ -103,18 +100,16 @@ func (g *Game) AddMessage(msg string) {
 func main() {
 	// Создаем игру в состоянии главного меню
 	game := NewGame(MainMenu)
-
 	render := Renderer{}
 	if err := render.Init(); err != nil {
 		log.Fatalf("Failed to initialize renderer: %v", err)
 	}
+	game.Renderer = &render // Передаем рендерер в структуру Game
 	controller := NewController(game, render.GameWindow)
 	defer render.Cleanup()
-
 	for game.Running {
 		render.Render(game)
 		controller.HandleInput()
-
 		// Если игра перешла в состояние игры, обрабатываем врагов
 		if game.StateGame == YouGame {
 			controller.EnemyFOV()

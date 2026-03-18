@@ -18,6 +18,7 @@ type Player struct {
 	CountElixir       int
 	CountScrollsRead  int
 	CountHits         int
+	TotalHitsTaken    int // Добавлено поле для подсчета полученных попаданий
 	CountTile         int
 }
 

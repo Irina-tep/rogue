@@ -348,14 +348,18 @@ func (sm *SaveManager) GetLatestSave() (*SaveData, error) {
 
 // StatisticData - данные статистики одного прохождения
 type StatisticData struct {
-	PlayerName    string    `json:"playerName"`
-	Timestamp     time.Time `json:"timestamp"`
-	ReachedLevel  int       `json:"reachedLevel"`  // достигнутый уровень
-	TotalEnemies  int       `json:"totalEnemies"`  // всего побеждено врагов
-	TotalTreasure int       `json:"totalTreasure"` // всего собрано сокровищ
-	TotalSteps    int       `json:"totalSteps"`    // всего сделано шагов
-	TotalPlayTime int       `json:"totalPlayTime"` // общее время игры (секунды)
-	IsCompleted   bool      `json:"isCompleted"`   // завершено ли прохождение
+	PlayerName     string    `json:"playerName"`
+	Timestamp      time.Time `json:"timestamp"`
+	ReachedLevel   int       `json:"reachedLevel"`   // достигнутый уровень
+	TotalEnemies   int       `json:"totalEnemies"`   // всего побеждено врагов
+	TotalTreasure  int       `json:"totalTreasure"`  // всего собрано сокровищ
+	TotalFood      int       `json:"totalFood"`      // всего потреблено еды
+	TotalElixirs   int       `json:"totalElixirs"`   // всего выпито эликсиров
+	TotalScrolls   int       `json:"totalScrolls"`   // всего прочитано свитков
+	TotalHits      int       `json:"totalHits"`      // всего нанесено попаданий
+	TotalHitsTaken int       `json:"totalHitsTaken"` // всего получено попаданий
+	TotalSteps     int       `json:"totalSteps"`     // всего пройдено клеток
+	IsCompleted    bool      `json:"isCompleted"`    // завершено ли прохождение
 }
 
 // Leaderboard - таблица лидеров
@@ -369,17 +373,14 @@ func (sm *SaveManager) LoadStatistics() error {
 		sm.Statistics = []StatisticData{}
 		return nil
 	}
-
 	data, err := ioutil.ReadFile(statsFile)
 	if err != nil {
 		return fmt.Errorf("error reading statistics file: %v", err)
 	}
-
 	var stats []StatisticData
 	if err := json.Unmarshal(data, &stats); err != nil {
 		return fmt.Errorf("statistics deserialization error: %v", err)
 	}
-
 	sm.Statistics = stats
 	Leaderboard = stats
 	return nil
@@ -392,33 +393,37 @@ func (sm *SaveManager) SaveStatistics() error {
 	if err != nil {
 		return fmt.Errorf("statistics serialization error: %v", err)
 	}
-
 	if err := ioutil.WriteFile(statsFile, data, 0644); err != nil {
 		return fmt.Errorf("error writing statistics file: %v", err)
 	}
-
 	Leaderboard = sm.Statistics
 	return nil
 }
 
 // AddStatistic - добавление новой статистики прохождения
 func (sm *SaveManager) AddStatistic(playerName string, reachedLevel int, totalEnemies int,
-	totalTreasure int, totalSteps int, totalPlayTime int, isCompleted bool,
+	totalTreasure int, totalFood int, totalElixirs int, totalScrolls int, totalHits int, totalHitsTaken int, totalSteps int, isCompleted bool,
 ) {
 	stat := StatisticData{
-		PlayerName:    playerName,
-		Timestamp:     time.Now(),
-		ReachedLevel:  reachedLevel,
-		TotalEnemies:  totalEnemies,
-		TotalTreasure: totalTreasure,
-		TotalSteps:    totalSteps,
-		TotalPlayTime: totalPlayTime,
-		IsCompleted:   isCompleted,
+		PlayerName:     playerName,
+		Timestamp:      time.Now(),
+		ReachedLevel:   reachedLevel,
+		TotalEnemies:   totalEnemies,
+		TotalTreasure:  totalTreasure,
+		TotalFood:      totalFood,
+		TotalElixirs:   totalElixirs,
+		TotalScrolls:   totalScrolls,
+		TotalHits:      totalHits,
+		TotalHitsTaken: totalHitsTaken,
+		TotalSteps:     totalSteps,
+		IsCompleted:    isCompleted,
 	}
 
 	sm.Statistics = append(sm.Statistics, stat)
-	// Сортируем по достигнутому уровню (по убыванию), затем по сокровищам
+
+	// Сортируем по количеству собранных сокровищ (по убыванию)
 	sortStatistics(sm.Statistics)
+
 	// Ограничиваем количество записей (например, топ-50)
 	if len(sm.Statistics) > 50 {
 		sm.Statistics = sm.Statistics[:50]
@@ -430,20 +435,20 @@ func (sm *SaveManager) AddStatistic(playerName string, reachedLevel int, totalEn
 // sortStatistics - сортировка статистики
 func sortStatistics(stats []StatisticData) {
 	sort.Slice(stats, func(i, j int) bool {
-		// Сначала сортируем по завершенности прохождения
+		// Сначала сортируем по завершённости прохождения
 		if stats[i].IsCompleted != stats[j].IsCompleted {
 			return stats[i].IsCompleted
+		}
+		// Затем по количеству собранных сокровищ (по убыванию)
+		if stats[i].TotalTreasure != stats[j].TotalTreasure {
+			return stats[i].TotalTreasure > stats[j].TotalTreasure
 		}
 		// Затем по достигнутому уровню (по убыванию)
 		if stats[i].ReachedLevel != stats[j].ReachedLevel {
 			return stats[i].ReachedLevel > stats[j].ReachedLevel
 		}
-		// Затем по количеству сокровищ (по убыванию)
-		if stats[i].TotalTreasure != stats[j].TotalTreasure {
-			return stats[i].TotalTreasure > stats[j].TotalTreasure
-		}
 		// Затем по времени (чем меньше время, тем лучше)
-		return stats[i].TotalPlayTime < stats[j].TotalPlayTime
+		return stats[i].Timestamp.Before(stats[j].Timestamp)
 	})
 }
 

@@ -32,14 +32,12 @@ func (controller *Controller) HandleInput() {
 		controller.HandleMenuInput()
 		return
 	}
-
-	ch := controller.GameWindow.GetChar()
-	controller.Game.AddMessage(fmt.Sprintf("Key pressed: %c", ch)) // Добавляем сообщение о нажатой клавише
+	ch := controller.GameWindow.GetChar() // Используем GameWindow из Controller
+	controller.Game.AddMessage(fmt.Sprintf("Key pressed: %c", ch))
 	dx := 0
 	dy := 0
 	switch ch {
 	case 113, 81: // 'q' и 'Q'
-		// Сохраняем игру перед выходом
 		controller.SaveOnExit()
 		controller.Game.Running = false
 	case 119, 87: // 'w' и 'W'
@@ -50,7 +48,7 @@ func (controller *Controller) HandleInput() {
 		dx = -1
 	case 100, 68: // 'd' и 'D'
 		dx = 1
-	case 'h', 'H': // обработка клавиш для использования предметов (h для оружия, j для еды, k для эликсиров, e для свитков)
+	case 'h', 'H':
 		controller.UseWeapon()
 		return
 	case 'j', 'J':
@@ -67,18 +65,21 @@ func (controller *Controller) HandleInput() {
 }
 
 // HandleMenuInput - обработка ввода в главном меню
-func (controller *Controller) HandleMenuInput() {
-	ch := controller.GameWindow.GetChar()
+func (c *Controller) HandleMenuInput() {
+	ch := c.Game.Renderer.GameWindow.GetChar()
 	switch ch {
 	case '1':
 		// Продолжить последнее сохранение
-		controller.LoadLastSave()
+		c.LoadLastSave()
 	case '2':
 		// Начать новую игру
-		controller.StartNewGame()
+		c.StartNewGame()
+	case '3':
+		// Таблица лидеров
+		c.ShowLeaderboard()
 	case 'q', 'Q':
 		// Выйти из игры
-		controller.Game.Running = false
+		c.Game.Running = false
 	}
 }
 
@@ -154,7 +155,7 @@ func (controller *Controller) MovePlayer(dx int, dy int) {
 	for i := 0; i < len(controller.Game.CurrentLevel.Enemies); i++ {
 		if controller.Game.CurrentLevel.Enemies[i].PosXEnemy == newX && controller.Game.CurrentLevel.Enemies[i].PosYEnemy == newY {
 			controller.PlayerAttack(&controller.Game.CurrentLevel.Enemies[i])
-			return //если аттакует, то после этого заканчиваем ход
+			return // если аттакует, то после этого заканчиваем ход
 		}
 	}
 	// если в тайле враг, то атакуем есои нет , то :
@@ -288,7 +289,6 @@ func (controller *Controller) EnemyFOV() {
 			} else {
 				controller.Game.CurrentLevel.Enemies[i].Mode = Roaming
 			}
-
 		} else {
 			controller.Game.CurrentLevel.Enemies[i].Mode = Roaming
 		}
@@ -299,7 +299,6 @@ func (controller *Controller) EnemyFOV() {
 func (c *Controller) EnemyTurn() {
 	for i := 0; i < len(c.Game.CurrentLevel.Enemies); i++ {
 		enemy := &c.Game.CurrentLevel.Enemies[i]
-
 		// Проверяем, находится ли монстр рядом с игроком
 		dx := math.Abs(float64(enemy.PosXEnemy - c.Game.Player.PosX))
 		dy := math.Abs(float64(enemy.PosYEnemy - c.Game.Player.PosY))
@@ -308,21 +307,17 @@ func (c *Controller) EnemyTurn() {
 			enemy.Attack(c.Game.Player, c)
 			continue // Пропускаем перемещение, если монстр атакует
 		}
-
 		// Перемещаем врага
 		newX, newY := enemy.PosXEnemy, enemy.PosYEnemy
 		if enemy.Mode == Roaming {
-			newX, newY = enemy.EnemyMove()
+			newX, newY = enemy.EnemyMove(c.Game.CurrentLevel)
 		} else if enemy.Mode == Chasing {
 			newX, newY = enemy.ChaseTarget(c.Game.Player.PosX, c.Game.Player.PosY)
 		}
-
 		// Проверяем, можно ли переместиться на новую позицию
 		if !c.Game.CurrentLevel.Tiles[newX][newY].BlockedForEnemy {
 			enemy.PosXEnemy = newX
 			enemy.PosYEnemy = newY
-			c.UpdateTiles()
-			c.UpdateVisibility()
 		}
 	}
 }
@@ -409,18 +404,20 @@ func (c *Controller) SaveStatistics(isCompleted bool) {
 	if totalPlayTime < 0 {
 		totalPlayTime = 0
 	}
-
 	// Сохраняем статистику
 	c.Game.SaveManager.AddStatistic(
 		"Player", // Можно добавить ввод имени игрока позже
 		c.Game.Player.CurrentLevelIndex,
 		c.Game.Player.CountEnemy,
 		c.Game.Player.Treasure,
+		c.Game.Player.CountFood,
+		c.Game.Player.CountElixir,
+		c.Game.Player.CountScrollsRead,
+		c.Game.Player.CountHits,
+		0, // TotalHitsTaken (нужно добавить логику для подсчета)
 		c.Game.Player.CountTile,
-		totalPlayTime,
 		isCompleted,
 	)
-
 	c.Game.AddMessage(fmt.Sprintf("Statistics saved. Reached level: %d", c.Game.Player.CurrentLevelIndex))
 }
 
@@ -674,11 +671,14 @@ func (c *Controller) PlayerAttack(enemy *Enemy) {
 	}
 
 	enemy.HealthEnemy -= damage
+	c.Game.Player.CountHits++ // Увеличиваем количество нанесенных попаданий
 	c.Game.AddMessage(fmt.Sprintf("You hit %s for %d damage!", enemy.TypeEnemy, damage))
 
 	// Проверяем, умер ли враг
 	if enemy.HealthEnemy <= 0 {
 		c.Game.AddMessage(fmt.Sprintf("You defeated %s!", enemy.TypeEnemy))
+		c.Game.Player.Treasure += enemy.Treasure
+		c.Game.Player.CountEnemy++
 
 		// Удаляем врага с уровня
 		for i, e := range c.Game.CurrentLevel.Enemies {
@@ -687,9 +687,12 @@ func (c *Controller) PlayerAttack(enemy *Enemy) {
 				break
 			}
 		}
-
-		c.Game.Player.Treasure += enemy.Treasure
-		c.Game.Player.CountEnemy++
 		c.UpdateTiles()
 	}
+}
+
+// функция для отображения таблицы лидеров
+func (c *Controller) ShowLeaderboard() {
+	c.Game.Renderer.ShowLeaderboard(c.Game)
+	c.Game.Renderer.GameWindow.GetChar() // Ждем нажатия клавиши
 }

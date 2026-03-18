@@ -3,14 +3,15 @@ package main
 // Здесь отрисовка
 import (
 	"fmt"
+	"log"
 	"sort"
 
 	"github.com/rthornton128/goncurses"
 )
 
 const (
-	ScreenWidth  int = 61 // 64
-	ScreenHeight int = 40 // 43
+	ScreenWidth  int = 61
+	ScreenHeight int = 40
 )
 
 // система отрисовки
@@ -61,7 +62,6 @@ func (r *Renderer) Render(g *Game) {
 	r.GameWindow.Clear()
 	r.MessageWindow.Clear()
 	r.StatusWindow.Clear()
-
 	if g.StateGame == YouWin {
 		message := "You Win!"
 		startX := ScreenWidth/2 - len(message)
@@ -87,11 +87,10 @@ func (r *Renderer) Render(g *Game) {
 		title := "ROGUE-LIKE GAME"
 		startX := ScreenWidth/2 - len(title)/2
 		r.GameWindow.MovePrint(ScreenHeight/2-3, startX, title)
-
 		r.GameWindow.MovePrint(ScreenHeight/2-1, ScreenWidth/2-10, "1. Continue last save")
 		r.GameWindow.MovePrint(ScreenHeight/2, ScreenWidth/2-10, "2. Start new game")
-		r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, "Q. Quit")
-
+		r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, "3. Leaderboard")
+		r.GameWindow.MovePrint(ScreenHeight/2+2, ScreenWidth/2-10, "Q. Quit")
 		// Показываем информацию о последнем сохранении если оно есть
 		if g.SaveManager != nil {
 			saves, err := g.SaveManager.ListSaves()
@@ -104,12 +103,11 @@ func (r *Renderer) Render(g *Game) {
 				info := fmt.Sprintf("Last save: Level %d, HP: %d/%d",
 					lastSave.Level, lastSave.PlayerHP, lastSave.PlayerMaxHP)
 				infoX := ScreenWidth/2 - len(info)/2
-				r.GameWindow.MovePrint(ScreenHeight/2+3, infoX, info)
+				r.GameWindow.MovePrint(ScreenHeight/2+4, infoX, info)
 			}
 		}
 	} else {
 		// Отрисовываем уровень
-
 		for x := 0; x < len(g.CurrentLevel.Tiles); x++ {
 			for y := 0; y < len(g.CurrentLevel.Tiles[x]); y++ {
 				tile := g.CurrentLevel.Tiles[x][y]
@@ -141,7 +139,6 @@ func (r *Renderer) Render(g *Game) {
 		r.StatusWindow.MovePrintf(2, 2, "Strength: %d", g.Player.Strength)
 		r.StatusWindow.MovePrintf(3, 2, "Level: %d", g.CurrentLevelIndex+1)
 		// r.StatusWindow.MovePrintf(2, 2, "Current Weapon: %s", g.Player.CurrenWeapon)
-
 		// Отрисовываем сообщения (последние 4 сообщения)
 		msgY := 1
 		start := len(g.Messages) - 10
@@ -161,4 +158,114 @@ func (r *Renderer) Render(g *Game) {
 	r.StatusWindow.Refresh()
 	r.MessageWindow.Refresh()
 	r.Stdsrc.Refresh()
+}
+
+// Отрисовываем таблицу лидеров только со статистикой сокровищ
+
+// func (r *Renderer) ShowLeaderboard(g *Game) {
+// 	r.GameWindow.Clear()
+// 	r.MessageWindow.Clear()
+// 	r.StatusWindow.Clear()
+
+// 	title := "LEADERBOARD"
+// 	startX := ScreenWidth/2 - len(title)/2
+// 	r.GameWindow.MovePrint(ScreenHeight/2-5, startX, title)
+
+// 	// Получаем таблицу лидеров
+// 	leaderboard := g.SaveManager.GetLeaderboard()
+
+// 	// Отрисовываем заголовки
+// 	r.GameWindow.MovePrint(ScreenHeight/2-3, 2, "Rank")
+// 	r.GameWindow.MovePrint(ScreenHeight/2-3, 10, "Player")
+// 	r.GameWindow.MovePrint(ScreenHeight/2-3, 25, "Level")
+// 	r.GameWindow.MovePrint(ScreenHeight/2-3, 35, "Treasure")
+
+// 	// Отрисовываем записи
+// 	for i, stat := range leaderboard {
+// 		if i >= 10 { // Ограничиваемся топ-10
+// 			break
+// 		}
+// 		y := ScreenHeight/2 - 2 + i
+// 		r.GameWindow.MovePrint(y, 2, fmt.Sprintf("%d", i+1))
+// 		r.GameWindow.MovePrint(y, 10, stat.PlayerName)
+// 		r.GameWindow.MovePrint(y, 25, fmt.Sprintf("%d", stat.ReachedLevel))
+// 		r.GameWindow.MovePrint(y, 35, fmt.Sprintf("%d", stat.TotalTreasure))
+// 	}
+
+// 	r.GameWindow.MovePrint(ScreenHeight-2, 2, "Press any key to return to menu...")
+
+// 	r.GameWindow.Box(goncurses.ACS_VLINE, goncurses.ACS_HLINE)
+// 	r.GameWindow.Refresh()
+// 	r.MessageWindow.Refresh()
+// 	r.StatusWindow.Refresh()
+// }
+
+// Отрисовываем таблицу лидеров полностью со статистикой
+func (r *Renderer) ShowLeaderboard(g *Game) {
+	// Сохраняем текущие окна
+	oldGameWindow := r.GameWindow
+	oldMessageWindow := r.MessageWindow
+	oldStatusWindow := r.StatusWindow
+
+	// Создаем новое окно для таблицы лидеров
+	leaderboardWindow, err := goncurses.NewWindow(30, 80, 2, 2)
+	if err != nil {
+		log.Fatalf("Failed to create leaderboard window: %v", err)
+	}
+	defer leaderboardWindow.Delete()
+
+	leaderboardWindow.Clear()
+	leaderboardWindow.Box(goncurses.ACS_VLINE, goncurses.ACS_HLINE)
+
+	title := "LEADERBOARD"
+	startX := 40 - len(title)/2
+	leaderboardWindow.MovePrint(1, startX, title)
+
+	// Отрисовываем заголовки с равномерным распределением
+	leaderboardWindow.MovePrint(3, 3, "Rank")
+	leaderboardWindow.MovePrint(3, 10, "Name")
+	leaderboardWindow.MovePrint(3, 22, "Level")
+	leaderboardWindow.MovePrint(3, 30, "Treasure")
+	leaderboardWindow.MovePrint(3, 42, "Enemies")
+	leaderboardWindow.MovePrint(3, 50, "Food")
+	leaderboardWindow.MovePrint(3, 56, "Elixirs")
+	leaderboardWindow.MovePrint(3, 64, "Scrolls")
+	leaderboardWindow.MovePrint(3, 72, "Hits")
+
+	// Получаем таблицу лидеров
+	leaderboard := g.SaveManager.GetLeaderboard()
+
+	// Отрисовываем записи
+	for i, stat := range leaderboard {
+		if i >= 20 { // Ограничиваемся топ-20
+			break
+		}
+		y := 5 + i
+		leaderboardWindow.MovePrint(y, 3, fmt.Sprintf("%2d", i+1))
+		leaderboardWindow.MovePrint(y, 10, fmt.Sprintf("%-10s", stat.PlayerName))
+		leaderboardWindow.MovePrint(y, 22, fmt.Sprintf("%3d", stat.ReachedLevel))
+		leaderboardWindow.MovePrint(y, 30, fmt.Sprintf("%6d", stat.TotalTreasure))
+		leaderboardWindow.MovePrint(y, 42, fmt.Sprintf("%6d", stat.TotalEnemies))
+		leaderboardWindow.MovePrint(y, 50, fmt.Sprintf("%3d", stat.TotalFood))
+		leaderboardWindow.MovePrint(y, 56, fmt.Sprintf("%3d", stat.TotalElixirs))
+		leaderboardWindow.MovePrint(y, 64, fmt.Sprintf("%3d", stat.TotalScrolls))
+		leaderboardWindow.MovePrint(y, 72, fmt.Sprintf("%3d/%d", stat.TotalHits, stat.TotalHitsTaken))
+	}
+
+	leaderboardWindow.MovePrint(27, 3, "Press any key to return to menu...")
+	leaderboardWindow.Refresh()
+
+	// Ждем нажатия клавиши
+	leaderboardWindow.GetChar()
+
+	// Удаляем окно таблицы лидеров
+	leaderboardWindow.Delete()
+
+	// Восстанавливаем старые окна
+	r.GameWindow = oldGameWindow
+	r.MessageWindow = oldMessageWindow
+	r.StatusWindow = oldStatusWindow
+
+	// Перерисовываем основное окно
+	r.Render(g)
 }

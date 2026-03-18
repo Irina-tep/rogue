@@ -83,16 +83,17 @@ func NewEnemy(coordXEnemy, coordYEnemy int, typeEnemy string, currentRoom *Room)
 		enemy.DexterityEnemy = 20
 		enemy.StrengthEnemy = 5
 		enemy.HostilityEnemy = 10 // Увеличиваем радиус враждебности
+		enemy.Treasure = 15
 	case Ogre:
 		enemy.HealthEnemy = 40
 		enemy.DexterityEnemy = 5
-		enemy.StrengthEnemy = 20
+		enemy.StrengthEnemy = 15
 		enemy.HostilityEnemy = 5
 		enemy.Treasure = 25
 	case SnakeMage:
 		enemy.HealthEnemy = 20
 		enemy.DexterityEnemy = 25
-		enemy.StrengthEnemy = 10
+		enemy.StrengthEnemy = 5
 		enemy.HostilityEnemy = 8
 		enemy.Treasure = 30
 	}
@@ -127,54 +128,52 @@ func (level *Level) CreateEnemies() {
 	}
 }
 
-func (en *Enemy) EnemyMove() (int, int) {
+func (en *Enemy) EnemyMove(level *Level) (int, int) {
 	newX, newY := en.PosXEnemy, en.PosYEnemy
 	switch en.TypeEnemy {
 	case Zombie, Vampire:
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
-		// генерируется случайное направление движения на 1 клетку
-		// 1 вправо, 2 вниз, 3 влево, 4 вверх
 		direction := GeneratorNum(1, 4)
-		if direction == 1 && en.PosXEnemy < x2 {
+		if direction == 1 && newX < x2 && !en.isBlocked(level, newX+1, newY) {
 			newX = en.PosXEnemy + 1
-		} else if direction == 2 && en.PosYEnemy < y2 {
+		} else if direction == 2 && newY < y2 && !en.isBlocked(level, newX, newY+1) {
 			newY = en.PosYEnemy + 1
-		} else if direction == 3 && en.PosXEnemy > x1 {
+		} else if direction == 3 && newX > x1 && !en.isBlocked(level, newX-1, newY) {
 			newX = en.PosXEnemy - 1
-		} else if direction == 4 && en.PosYEnemy > y1 {
+		} else if direction == 4 && newY > y1 && !en.isBlocked(level, newX, newY-1) {
 			newY = en.PosYEnemy - 1
 		}
 	case Ghost:
 		newX, newY = en.CurrentRoom.RandomPos()
-
 	case Ogre:
+		if en.Cooldown > 0 {
+			en.Cooldown--
+			return en.PosXEnemy, en.PosYEnemy
+		}
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
-		// генерируется случайное направление движения на 1 клетку
 		direction := GeneratorNum(1, 4)
-		if direction == 1 && en.PosXEnemy < x2-1 {
+		if direction == 1 && newX < x2-1 && !en.isBlocked(level, newX+2, newY) {
 			newX = en.PosXEnemy + 2
-		} else if direction == 2 && en.PosYEnemy < y2-1 {
+		} else if direction == 2 && newY < y2-1 && !en.isBlocked(level, newX, newY+2) {
 			newY = en.PosYEnemy + 2
-		} else if direction == 3 && en.PosXEnemy > x1+1 {
+		} else if direction == 3 && newX > x1+1 && !en.isBlocked(level, newX-2, newY) {
 			newX = en.PosXEnemy - 2
-		} else if direction == 4 && en.PosYEnemy > y1+1 {
+		} else if direction == 4 && newY > y1+1 && !en.isBlocked(level, newX, newY-2) {
 			newY = en.PosYEnemy - 2
 		}
-
 	case SnakeMage:
-		// Добавьте логику для SnakeMage
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
 		direction := GeneratorNum(1, 4)
-		if direction == 1 && en.PosXEnemy < x2 && en.PosYEnemy > y1 {
+		if direction == 1 && newX < x2 && newY > y1 && !en.isBlocked(level, newX+1, newY-1) {
 			newX = en.PosXEnemy + 1
 			newY = en.PosYEnemy - 1
-		} else if direction == 2 && en.PosXEnemy < x2 && en.PosYEnemy < y2 {
+		} else if direction == 2 && newX < x2 && newY < y2 && !en.isBlocked(level, newX+1, newY+1) {
 			newX = en.PosXEnemy + 1
 			newY = en.PosYEnemy + 1
-		} else if direction == 3 && en.PosXEnemy > x1 && en.PosYEnemy > y1 {
+		} else if direction == 3 && newX > x1 && newY > y1 && !en.isBlocked(level, newX-1, newY-1) {
 			newX = en.PosXEnemy - 1
 			newY = en.PosYEnemy - 1
-		} else if direction == 4 && en.PosXEnemy > x1 && en.PosYEnemy < y2 {
+		} else if direction == 4 && newX > x1 && newY < y2 && !en.isBlocked(level, newX-1, newY+1) {
 			newX = en.PosXEnemy - 1
 			newY = en.PosYEnemy + 1
 		}
@@ -186,8 +185,8 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 	newX, newY := en.PosXEnemy, en.PosYEnemy
 	lenX := en.PosXEnemy - TargetX
 	lenY := en.PosYEnemy - TargetY
-	singX := 1 //сохраняем знак
-	singY := 1 //сохраняем знак
+	singX := 1 // сохраняем знак
+	singY := 1 // сохраняем знак
 	// x1, x2, y1, y2 := en.CurrentRoom.Interior()  //не знаю нужно ли проверять на выход из комнаты
 	if lenX < 0 {
 		lenX *= (-1)
@@ -197,8 +196,8 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 		singY = -1
 	}
 
-	if lenX < lenY { //двигаемся в вертик направлении
-		if singY == -1 { //двигаемся вниз
+	if lenX < lenY { // двигаемся в вертик направлении
+		if singY == -1 { // двигаемся вниз
 			switch en.TypeEnemy {
 			case Zombie, Vampire:
 				newY = en.PosYEnemy + 1
@@ -207,7 +206,7 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 			case Ogre:
 				newY = en.PosYEnemy + 2
 			case SnakeMage:
-				if singX == -1 { //если игрок справа от врага
+				if singX == -1 { // если игрок справа от врага
 					newX = en.PosXEnemy + 1
 					newY = en.PosYEnemy + 1
 				} else {
@@ -215,7 +214,7 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 					newY = en.PosYEnemy - 1
 				}
 			}
-		} else { //двигаемся вверх
+		} else { // двигаемся вверх
 			switch en.TypeEnemy {
 			case Zombie, Vampire:
 				newY = en.PosYEnemy - 1
@@ -224,7 +223,7 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 			case Ogre:
 				newY = en.PosYEnemy - 2
 			case SnakeMage:
-				if singX == -1 { //если игрок справа от врага
+				if singX == -1 { // если игрок справа от врага
 					newX = en.PosXEnemy - 1
 					newY = en.PosYEnemy + 1
 				} else {
@@ -233,9 +232,8 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 				}
 			}
 		}
-
-	} else { //двигаемся в горизонтальном направлении
-		if singX == -1 { //двигаемся вправо
+	} else { // двигаемся в горизонтальном направлении
+		if singX == -1 { // двигаемся вправо
 			switch en.TypeEnemy {
 			case Zombie, Vampire:
 				newX = en.PosXEnemy + 1
@@ -244,7 +242,7 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 			case Ogre:
 				newX = en.PosXEnemy + 2
 			case SnakeMage:
-				if singY == -1 { //если игрок снизу от врага
+				if singY == -1 { // если игрок снизу от врага
 					newX = en.PosXEnemy + 1
 					newY = en.PosYEnemy + 1
 				} else {
@@ -252,7 +250,7 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 					newY = en.PosYEnemy + 1
 				}
 			}
-		} else { //двигаемся влево
+		} else { // двигаемся влево
 			switch en.TypeEnemy {
 			case Zombie, Vampire:
 				newX = en.PosXEnemy - 1
@@ -261,7 +259,7 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 			case Ogre:
 				newX = en.PosXEnemy - 2
 			case SnakeMage:
-				if singY == -1 { //если игрок снизу от врага
+				if singY == -1 { // если игрок снизу от врага
 					newX = en.PosXEnemy + 1
 					newY = en.PosYEnemy - 1
 				} else {
@@ -339,6 +337,8 @@ func (en *Enemy) Attack(player *Player, controller *Controller) bool {
 		}
 	}
 
+	player.TotalHitsTaken++ // Увеличиваем количество полученных попаданий
+
 	// Рассчитываем урон
 	damage := en.StrengthEnemy + GeneratorNum(0, 5)
 	player.HP -= damage
@@ -346,10 +346,8 @@ func (en *Enemy) Attack(player *Player, controller *Controller) bool {
 		player.HP = 0
 	}
 
+	controller.Game.Player.CountHits++ // Увеличиваем количество полученных попаданий
 	controller.Game.AddMessage(fmt.Sprintf("%s hit you for %d damage!", en.TypeEnemy, damage))
-
-	//controller.Game.Renderer.Render(controller.Game)
-	//renderer.Render(controller.Game)
 
 	// Проверяем, умер ли игрок
 	if player.HP <= 0 {
