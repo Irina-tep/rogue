@@ -28,10 +28,6 @@ func NewController(game *Game, gameWindow *goncurses.Window) Controller {
 
 // Обработка ввода
 func (controller *Controller) HandleInput() {
-	if controller.Game.StateGame == MainMenu {
-		controller.HandleMenuInput()
-		return
-	}
 	ch := controller.GameWindow.GetChar() // Используем GameWindow из Controller
 	dx := 0
 	dy := 0
@@ -83,21 +79,28 @@ func (controller *Controller) HandleInput() {
 }
 
 // HandleMenuInput - обработка ввода в главном меню
-func (c *Controller) HandleMenuInput() {
+func (c *Controller) HandleMenuInput() bool {
 	ch := c.Game.Renderer.GameWindow.GetChar()
+
 	switch ch {
 	case '1':
 		// Продолжить последнее сохранение
 		c.LoadLastSave()
+		return false
 	case '2':
 		// Начать новую игру
 		c.StartNewGame()
+		return false
 	case '3':
 		// Таблица лидеров
 		c.ShowLeaderboard()
+		return true
 	case 'q', 'Q':
 		// Выйти из игры
 		c.Game.Running = false
+		return false
+	default:
+		return true
 	}
 }
 
@@ -161,7 +164,7 @@ func (c *Controller) StartNewGame() {
 	player := NewPlayer(startX, startY, c.Game.CurrentLevelIndex)
 	player.Name = playerName // Сохраняем имя игрока
 	c.Game.Player = &player
-
+	c.UpdateVisibility()
 	// Добавляем сообщения
 	c.Game.AddMessage("Start new game!")
 	c.Game.AddMessage("Use WASD for action, q for exit")

@@ -48,25 +48,25 @@ func NewGame(state int) *Game {
 		SaveManager: NewSaveManager(), // Инициализируем менеджер сохранений
 	}
 	// Если это не меню, инициализируем уровни и игрока
-	if state != MainMenu {
-		g.RNG = rand.New(rand.NewPCG(g.Seed, 10))
-		// Создаем уровни
-		for i := 0; i < CountLevels; i++ {
-			level := NewLevel()
-			level.Number = i
-			g.Levels = append(g.Levels, level)
-		}
-		// Инициализируем уровень
-		g.CurrentLevelIndex = 0
-		g.CurrentLevel = &g.Levels[0]
-		// Создаем игрока
-		startX, startY := g.CurrentLevel.GetPos()
-		player := NewPlayer(startX, startY, g.CurrentLevelIndex)
-		g.Player = &player
-		// Добавляем сообщения
-		g.AddMessage("Start game!")
-		g.AddMessage("Use WASD for action, q for exit")
-	}
+	// if state != MainMenu {
+	// 	g.RNG = rand.New(rand.NewPCG(g.Seed, 10))
+	// 	// Создаем уровни
+	// 	for i := 0; i < CountLevels; i++ {
+	// 		level := NewLevel()
+	// 		level.Number = i
+	// 		g.Levels = append(g.Levels, level)
+	// 	}
+	// 	// Инициализируем уровень
+	// 	g.CurrentLevelIndex = 0
+	// 	g.CurrentLevel = &g.Levels[0]
+	// 	// Создаем игрока
+	// 	startX, startY := g.CurrentLevel.GetPos()
+	// 	player := NewPlayer(startX, startY, g.CurrentLevelIndex)
+	// 	g.Player = &player
+	// 	// Добавляем сообщения
+	// 	g.AddMessage("Start game!")
+	// 	g.AddMessage("Use WASD for action, q for exit")
+	// }
 	return g
 }
 
@@ -112,6 +112,12 @@ func main() {
 	game.Renderer = &render // Передаем рендерер в структуру Game
 	controller := NewController(game, render.GameWindow)
 	defer render.Cleanup()
+	flag := true
+	for flag {
+		render.Render(game)
+		flag = controller.HandleMenuInput()
+	}
+
 	for game.Running {
 		render.Render(game)
 		controller.HandleInput()

@@ -293,7 +293,7 @@ func (r *Renderer) ShowLeaderboard(g *Game) {
 	leaderboardWindow.GetChar()
 
 	// Удаляем окно таблицы лидеров
-	leaderboardWindow.Delete()
+	// leaderboardWindow.Delete()
 
 	// Восстанавливаем старые окна
 	r.GameWindow = oldGameWindow
@@ -303,7 +303,4 @@ func (r *Renderer) ShowLeaderboard(g *Game) {
 	// Очищаем и обновляем основной экран
 	r.Stdsrc.Clear()
 	r.Stdsrc.Refresh()
-
-	// Перерисовываем основное окно
-	r.Render(g)
 }
