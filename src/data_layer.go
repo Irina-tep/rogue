@@ -108,6 +108,7 @@ func NewSaveManager() *SaveManager {
 	}
 
 	sm := &SaveManager{
+
 		SaveDir: saveDir,
 	}
 

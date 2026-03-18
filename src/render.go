@@ -200,6 +200,40 @@ func (r *Renderer) Render(g *Game) {
 // 	r.StatusWindow.Refresh()
 // }
 
+// EnterPlayerName запрашивает у игрока ввод имени
+func (r *Renderer) EnterPlayerName() string {
+	r.GameWindow.Clear()
+	r.GameWindow.MovePrint(ScreenHeight/2-1, ScreenWidth/2-10, "Enter your name:")
+	// goncurses.Echo(true)
+	goncurses.Cursor(1)
+	name := ""
+	// Показываем начальное положение курсора
+	r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, "________________")
+	r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, "")
+	r.GameWindow.Refresh()
+
+	for {
+		ch := r.GameWindow.GetChar()
+		// Проверяем различные коды клавиши Enter
+		if ch == '\n' || ch == '\r' || ch == goncurses.KEY_ENTER {
+			break
+		} else if ch == 127 || ch == 8 { // Backspace
+			if len(name) > 0 {
+				name = name[:len(name)-1]
+			}
+		} else if ch >= 32 && ch <= 126 { // Только печатные ASCII символы
+			name += string(ch)
+		}
+		// Очищаем строку и выводим заново
+		r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, "                  ")
+		r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, name)
+		r.GameWindow.Refresh()
+	}
+	// goncurses.Echo(false)
+	goncurses.Cursor(0)
+	return name
+}
+
 // Отрисовываем таблицу лидеров полностью со статистикой
 func (r *Renderer) ShowLeaderboard(g *Game) {
 	// Сохраняем текущие окна
@@ -265,6 +299,10 @@ func (r *Renderer) ShowLeaderboard(g *Game) {
 	r.GameWindow = oldGameWindow
 	r.MessageWindow = oldMessageWindow
 	r.StatusWindow = oldStatusWindow
+
+	// Очищаем и обновляем основной экран
+	r.Stdsrc.Clear()
+	r.Stdsrc.Refresh()
 
 	// Перерисовываем основное окно
 	r.Render(g)

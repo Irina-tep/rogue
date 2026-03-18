@@ -129,19 +129,19 @@ func (level *Level) CreateEnemies() {
 	}
 }
 
-func (en *Enemy) EnemyMove(level *Level) (int, int) {
+func (en *Enemy) EnemyMove() (int, int) {
 	newX, newY := en.PosXEnemy, en.PosYEnemy
 	switch en.TypeEnemy {
 	case Zombie, Vampire:
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
 		direction := GeneratorNum(1, 4)
-		if direction == 1 && newX < x2 && !en.isBlocked(level, newX+1, newY) {
+		if direction == 1 && en.PosXEnemy < x2 {
 			newX = en.PosXEnemy + 1
-		} else if direction == 2 && newY < y2 && !en.isBlocked(level, newX, newY+1) {
+		} else if direction == 2 && en.PosYEnemy < y2 {
 			newY = en.PosYEnemy + 1
-		} else if direction == 3 && newX > x1 && !en.isBlocked(level, newX-1, newY) {
+		} else if direction == 3 && en.PosXEnemy > x1 {
 			newX = en.PosXEnemy - 1
-		} else if direction == 4 && newY > y1 && !en.isBlocked(level, newX, newY-1) {
+		} else if direction == 4 && en.PosYEnemy > y1 {
 			newY = en.PosYEnemy - 1
 		}
 	case Ghost:
@@ -153,28 +153,28 @@ func (en *Enemy) EnemyMove(level *Level) (int, int) {
 		}
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
 		direction := GeneratorNum(1, 4)
-		if direction == 1 && newX < x2-1 && !en.isBlocked(level, newX+2, newY) {
+		if direction == 1 && en.PosXEnemy < x2-1 {
 			newX = en.PosXEnemy + 2
-		} else if direction == 2 && newY < y2-1 && !en.isBlocked(level, newX, newY+2) {
+		} else if direction == 2 && en.PosYEnemy < y2-1 {
 			newY = en.PosYEnemy + 2
-		} else if direction == 3 && newX > x1+1 && !en.isBlocked(level, newX-2, newY) {
+		} else if direction == 3 && en.PosXEnemy > x1+1 {
 			newX = en.PosXEnemy - 2
-		} else if direction == 4 && newY > y1+1 && !en.isBlocked(level, newX, newY-2) {
+		} else if direction == 4 && en.PosYEnemy > y1+1 {
 			newY = en.PosYEnemy - 2
 		}
 	case SnakeMage:
 		x1, x2, y1, y2 := en.CurrentRoom.Interior()
 		direction := GeneratorNum(1, 4)
-		if direction == 1 && newX < x2 && newY > y1 && !en.isBlocked(level, newX+1, newY-1) {
+		if direction == 1 && en.PosXEnemy < x2 && en.PosYEnemy > y1 {
 			newX = en.PosXEnemy + 1
 			newY = en.PosYEnemy - 1
-		} else if direction == 2 && newX < x2 && newY < y2 && !en.isBlocked(level, newX+1, newY+1) {
+		} else if direction == 2 && en.PosXEnemy < x2 && en.PosYEnemy < y2 {
 			newX = en.PosXEnemy + 1
 			newY = en.PosYEnemy + 1
-		} else if direction == 3 && newX > x1 && newY > y1 && !en.isBlocked(level, newX-1, newY-1) {
+		} else if direction == 3 && en.PosXEnemy > x1 && en.PosYEnemy > y1 {
 			newX = en.PosXEnemy - 1
 			newY = en.PosYEnemy - 1
-		} else if direction == 4 && newX > x1 && newY < y2 && !en.isBlocked(level, newX-1, newY+1) {
+		} else if direction == 4 && en.PosXEnemy > x1 && en.PosYEnemy < y2 {
 			newX = en.PosXEnemy - 1
 			newY = en.PosYEnemy + 1
 		}

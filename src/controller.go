@@ -33,7 +33,6 @@ func (controller *Controller) HandleInput() {
 		return
 	}
 	ch := controller.GameWindow.GetChar() // Используем GameWindow из Controller
-	controller.Game.AddMessage(fmt.Sprintf("Key pressed: %c", ch))
 	dx := 0
 	dy := 0
 	if controller.Game.WaitingForWeaponChoice {
@@ -145,7 +144,7 @@ func (c *Controller) LoadLastSave() {
 // StartNewGame - начать новую игру
 func (c *Controller) StartNewGame() {
 	// Запрашиваем имя игрока
-	playerName := c.EnterPlayerName()
+	playerName := c.Game.Renderer.EnterPlayerName()
 	// Инициализируем игру
 	c.Game.RNG = rand.New(rand.NewPCG(c.Game.Seed, 10))
 	// Создаем уровни
@@ -332,7 +331,7 @@ func (c *Controller) EnemyTurn() {
 		// Перемещаем врага
 		newX, newY := enemy.PosXEnemy, enemy.PosYEnemy
 		if enemy.Mode == Roaming {
-			newX, newY = enemy.EnemyMove(c.Game.CurrentLevel)
+			newX, newY = enemy.EnemyMove()
 		} else if enemy.Mode == Chasing {
 			newX, newY = enemy.ChaseTarget(c.Game.Player.PosX, c.Game.Player.PosY)
 		}
@@ -340,6 +339,8 @@ func (c *Controller) EnemyTurn() {
 		if !c.Game.CurrentLevel.Tiles[newX][newY].BlockedForEnemy {
 			enemy.PosXEnemy = newX
 			enemy.PosYEnemy = newY
+			c.UpdateTiles()
+			c.UpdateVisibility()
 		}
 	}
 }
@@ -704,33 +705,7 @@ func (c *Controller) PlayerAttack(enemy *Enemy) {
 // функция для отображения таблицы лидеров
 func (c *Controller) ShowLeaderboard() {
 	c.Game.Renderer.ShowLeaderboard(c.Game)
-	c.Game.Renderer.GameWindow.GetChar() // Ждем нажатия клавиши
-}
-
-func (c *Controller) EnterPlayerName() string {
-	r := c.Game.Renderer
-	r.GameWindow.Clear()
-	r.GameWindow.MovePrint(ScreenHeight/2-1, ScreenWidth/2-10, "Enter your name:")
-	goncurses.Echo(true)
-	goncurses.Cursor(1)
-	name := ""
-	for {
-		ch := c.GameWindow.GetChar()
-		if ch == '\n' {
-			break
-		} else if ch == 127 || ch == 8 { // Backspace
-			if len(name) > 0 {
-				name = name[:len(name)-1]
-			}
-		} else {
-			name += string(ch) // получаем символ, а не его числовое представление
-		}
-		r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, name)
-		r.GameWindow.Refresh()
-	}
-	goncurses.Echo(false)
-	goncurses.Cursor(0)
-	return name
+	// GetChar уже вызван внутри ShowLeaderboard, не нужно повторять
 }
 
 func (c *Controller) HandleWeaponChoice(ch rune) {
