@@ -407,8 +407,8 @@ func (c *Controller) SaveStatistics(isCompleted bool) {
 	if totalPlayTime < 0 {
 		totalPlayTime = 0
 	}
-	// Используем текущий уровень
-	reachedLevel := c.Game.Player.CurrentLevelIndex
+	// Используем текущий уровень + 1, так как индексация начинается с 0
+	reachedLevel := c.Game.Player.CurrentLevelIndex + 1
 
 	// Получаем имя игрока
 	playerName := c.Game.Player.Name
@@ -725,7 +725,7 @@ func (c *Controller) EnterPlayerName() string {
 				name = name[:len(name)-1]
 			}
 		} else {
-			name += string(ch)
+			name += string(ch) // получаем символ, а не его числовое представление
 		}
 		r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, name)
 		r.GameWindow.Refresh()
