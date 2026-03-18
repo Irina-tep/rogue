@@ -14,17 +14,21 @@ const (
 
 // главная структура игры
 type Game struct {
-	Player            *Player
-	Levels            []Level // все 21 уровень
-	CurrentLevel      *Level  // текущий уровень
-	CurrentLevelIndex int     // индекс текущего уровня
-	Messages          []string
-	Seed              uint64       // чтобы при запуске игры не генерировались одни и те же параметры, одна и та же последовательность
-	RNG               *rand.Rand   // для генерации
-	Running           bool         // true - игра активна, если нет - программа завершается
-	StateGame         int          // состояние игры
-	SaveManager       *SaveManager // Менеджер сохранений
-	Renderer          *Renderer    // Рендерер
+	Player                 *Player
+	Levels                 []Level // все 21 уровень
+	CurrentLevel           *Level  // текущий уровень
+	CurrentLevelIndex      int     // индекс текущего уровня
+	Messages               []string
+	Seed                   uint64       // чтобы при запуске игры не генерировались одни и те же параметры, одна и та же последовательность
+	RNG                    *rand.Rand   // для генерации
+	Running                bool         // true - игра активна, если нет - программа завершается
+	StateGame              int          // состояние игры
+	SaveManager            *SaveManager // Менеджер сохранений
+	Renderer               *Renderer    // Рендерер
+	WaitingForWeaponChoice bool
+	WaitingForFoodChoice   bool
+	WaitingForElixirChoice bool
+	WaitingForScrollChoice bool
 }
 
 // сотояния игры

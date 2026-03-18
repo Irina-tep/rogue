@@ -96,6 +96,7 @@ func NewEnemy(coordXEnemy, coordYEnemy int, typeEnemy string, currentRoom *Room)
 		enemy.StrengthEnemy = 5
 		enemy.HostilityEnemy = 8
 		enemy.Treasure = 30
+
 	}
 
 	return enemy

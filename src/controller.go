@@ -36,6 +36,25 @@ func (controller *Controller) HandleInput() {
 	controller.Game.AddMessage(fmt.Sprintf("Key pressed: %c", ch))
 	dx := 0
 	dy := 0
+	if controller.Game.WaitingForWeaponChoice {
+		controller.HandleWeaponChoice(rune(ch))
+		return
+	}
+
+	if controller.Game.WaitingForFoodChoice {
+		controller.HandleFoodChoice(rune(ch))
+		return
+	}
+
+	if controller.Game.WaitingForElixirChoice {
+		controller.HandleElixirChoice(rune(ch))
+		return
+	}
+
+	if controller.Game.WaitingForScrollChoice {
+		controller.HandleScrollChoice(rune(ch))
+		return
+	}
 	switch ch {
 	case 113, 81: // 'q' и 'Q'
 		controller.SaveOnExit()
@@ -407,8 +426,8 @@ func (c *Controller) SaveStatistics(isCompleted bool) {
 	if totalPlayTime < 0 {
 		totalPlayTime = 0
 	}
-	// Используем текущий уровень + 1, так как индексация начинается с 0
-	reachedLevel := c.Game.Player.CurrentLevelIndex + 1
+	// Используем текущий уровень (или + 1, так как индексация начинается с 0, надо понять)
+	reachedLevel := c.Game.Player.CurrentLevelIndex
 
 	// Получаем имя игрока
 	playerName := c.Game.Player.Name
@@ -468,15 +487,14 @@ func (c *Controller) UseFood() {
 		return
 	}
 
-	selectedObject, _ := c.Game.Player.Backpack.UseObject(FOOD, 0)
-	if selectedObject != nil {
-		c.Game.Player.HP += selectedObject.Health
-		if c.Game.Player.HP > c.Game.Player.MaxHP {
-			c.Game.Player.HP = c.Game.Player.MaxHP
-		}
-		c.Game.Player.CountFood++
-		c.Game.AddMessage(fmt.Sprintf("Ate food. HP: %d/%d", c.Game.Player.HP, c.Game.Player.MaxHP))
+	// Отображаем список еды
+	c.Game.AddMessage("Choose food (1-" + strconv.Itoa(len(objects)) + "):")
+	for i, object := range objects {
+		c.Game.AddMessage(fmt.Sprintf("%d. %s (Health: %d)", i+1, GetObjectSymbol(object.TypeObject), object.Health))
 	}
+
+	// Устанавливаем режим ожидания выбора еды
+	c.Game.WaitingForFoodChoice = true
 }
 
 func (c *Controller) UseElixir() {
@@ -486,18 +504,21 @@ func (c *Controller) UseElixir() {
 		return
 	}
 
-	selectedObject, _ := c.Game.Player.Backpack.UseObject(ELEXIR, 0)
-	if selectedObject != nil {
-		switch selectedObject.SubtypeObject {
+	// Отображаем список эликсиров
+	c.Game.AddMessage("Choose elixir (1-" + strconv.Itoa(len(objects)) + "):")
+	for i, object := range objects {
+		var effect string
+		switch object.SubtypeObject {
 		case DEXTERITY_ELIXIR:
-			c.Game.Player.Dexterity += selectedObject.Dexterity
-			c.Game.AddMessage(fmt.Sprintf("Drank Dexterity Elixir. Dexterity: %d", c.Game.Player.Dexterity))
+			effect = fmt.Sprintf("Dexterity: %d", object.Dexterity)
 		case STRENGTH_ELIXIR:
-			c.Game.Player.Strength += selectedObject.Strength
-			c.Game.AddMessage(fmt.Sprintf("Drank Strength Elixir. Strength: %d", c.Game.Player.Strength))
+			effect = fmt.Sprintf("Strength: %d", object.Strength)
 		}
-		c.Game.Player.CountElixir++
+		c.Game.AddMessage(fmt.Sprintf("%d. %s (%s)", i+1, GetObjectSymbol(object.TypeObject), effect))
 	}
+
+	// Устанавливаем режим ожидания выбора эликсира
+	c.Game.WaitingForElixirChoice = true
 }
 
 func (c *Controller) UseScroll() {
@@ -507,22 +528,23 @@ func (c *Controller) UseScroll() {
 		return
 	}
 
-	selectedObject, _ := c.Game.Player.Backpack.UseObject(SCROL, 0)
-	if selectedObject != nil {
-		switch selectedObject.SubtypeObject {
+	// Отображаем список свитков
+	c.Game.AddMessage("Choose scroll (1-" + strconv.Itoa(len(objects)) + "):")
+	for i, object := range objects {
+		var effect string
+		switch object.SubtypeObject {
 		case DEXTERITY_SCROL:
-			c.Game.Player.Dexterity += selectedObject.Dexterity
-			c.Game.AddMessage(fmt.Sprintf("Read Dexterity Scroll. Dexterity: %d", c.Game.Player.Dexterity))
+			effect = fmt.Sprintf("Dexterity: %d", object.Dexterity)
 		case STRENGTH_SCROL:
-			c.Game.Player.Strength += selectedObject.Strength
-			c.Game.AddMessage(fmt.Sprintf("Read Strength Scroll. Strength: %d", c.Game.Player.Strength))
+			effect = fmt.Sprintf("Strength: %d", object.Strength)
 		case HEALTH_SCROL:
-			c.Game.Player.MaxHP += selectedObject.MaxHealth
-			c.Game.Player.HP += selectedObject.MaxHealth
-			c.Game.AddMessage(fmt.Sprintf("Read Health Scroll. Max HP: %d, HP: %d", c.Game.Player.MaxHP, c.Game.Player.HP))
+			effect = fmt.Sprintf("Max HP: %d", object.MaxHealth)
 		}
-		c.Game.Player.CountScrollsRead++
+		c.Game.AddMessage(fmt.Sprintf("%d. %s (%s)", i+1, GetObjectSymbol(object.TypeObject), effect))
 	}
+
+	// Устанавливаем режим ожидания выбора свитка
+	c.Game.WaitingForScrollChoice = true
 }
 
 func (c *Controller) UseWeapon() {
@@ -532,38 +554,14 @@ func (c *Controller) UseWeapon() {
 		return
 	}
 
-	selectedObject, _ := c.Game.Player.Backpack.UseObject(WEAPON, 0)
-	if selectedObject != nil {
-		// Если у игрока уже было оружие, бросаем его на пол
-		if c.Game.Player.CurrenWeapon != "1d1" {
-			neighbor := []Tile{
-				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX+1][c.Game.Player.PosY],
-				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX][c.Game.Player.PosY+1],
-				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX-1][c.Game.Player.PosY],
-				c.Game.CurrentLevel.Tiles[c.Game.Player.PosX][c.Game.Player.PosY-1],
-			}
-			for _, tileNeighbor := range neighbor {
-				if !tileNeighbor.Blocked {
-					NewPosX, NewPosY := tileNeighbor.PosX, tileNeighbor.PosY
-					oldWeapon := &Object{
-						TypeObject: WEAPON,
-						Damage:     c.Game.Player.CurrenWeapon,
-						PosX:       NewPosX,
-						PosY:       NewPosY,
-					}
-					c.Game.CurrentLevel.Objects = append(c.Game.CurrentLevel.Objects, oldWeapon)
-					c.Game.AddMessage(fmt.Sprintf("Dropped old weapon %s", oldWeapon.Damage))
-					break
-				}
-			}
-		}
-
-		c.Game.Player.CurrenWeapon = selectedObject.Damage
-		c.Game.AddMessage(fmt.Sprintf("Equipped %s (Damage: %s)", GetObjectSymbol(selectedObject.TypeObject), selectedObject.Damage))
-	} else {
-		c.Game.Player.CurrenWeapon = "1d1"
-		c.Game.AddMessage("Unequipped weapon")
+	// Отображаем список оружия
+	c.Game.AddMessage("Choose a weapon (0 to unequip, 1-" + strconv.Itoa(len(objects)) + "):")
+	for i, object := range objects {
+		c.Game.AddMessage(fmt.Sprintf("%d. %s (Damage: %s)", i+1, GetObjectSymbol(object.TypeObject), object.Damage))
 	}
+
+	// Устанавливаем режим ожидания выбора оружия
+	c.Game.WaitingForWeaponChoice = true
 }
 
 // Применение эффектов предмета
@@ -733,4 +731,192 @@ func (c *Controller) EnterPlayerName() string {
 	goncurses.Echo(false)
 	goncurses.Cursor(0)
 	return name
+}
+
+func (c *Controller) HandleWeaponChoice(ch rune) {
+	objects := c.Game.Player.Backpack.GetObjects(WEAPON)
+	if len(objects) == 0 {
+		c.Game.WaitingForWeaponChoice = false
+		return
+	}
+
+	if ch >= '0' && ch <= '9' {
+		choice, err := strconv.Atoi(string(ch))
+		if err != nil {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForWeaponChoice = false
+			return
+		}
+
+		if choice == 0 {
+			c.Game.Player.CurrenWeapon = "1d1"
+			c.Game.AddMessage("Unequipped weapon")
+			c.Game.WaitingForWeaponChoice = false
+			return
+		}
+
+		if choice < 1 || choice > len(objects) {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForWeaponChoice = false
+			return
+		}
+
+		selectedObject, _ := c.Game.Player.Backpack.UseObject(WEAPON, choice-1)
+		if selectedObject != nil {
+			// Если у игрока уже было оружие, бросаем его на пол
+			if c.Game.Player.CurrenWeapon != "1d1" {
+				neighbor := []Tile{
+					c.Game.CurrentLevel.Tiles[c.Game.Player.PosX+1][c.Game.Player.PosY],
+					c.Game.CurrentLevel.Tiles[c.Game.Player.PosX][c.Game.Player.PosY+1],
+					c.Game.CurrentLevel.Tiles[c.Game.Player.PosX-1][c.Game.Player.PosY],
+					c.Game.CurrentLevel.Tiles[c.Game.Player.PosX][c.Game.Player.PosY-1],
+				}
+				for _, tileNeighbor := range neighbor {
+					if !tileNeighbor.Blocked {
+						NewPosX, NewPosY := tileNeighbor.PosX, tileNeighbor.PosY
+						oldWeapon := &Object{
+							TypeObject: WEAPON,
+							Damage:     c.Game.Player.CurrenWeapon,
+							PosX:       NewPosX,
+							PosY:       NewPosY,
+						}
+						c.Game.CurrentLevel.Objects = append(c.Game.CurrentLevel.Objects, oldWeapon)
+						c.Game.AddMessage(fmt.Sprintf("Dropped old weapon %s", oldWeapon.Damage))
+						break
+					}
+				}
+			}
+			c.Game.Player.CurrenWeapon = selectedObject.Damage
+			c.Game.AddMessage(fmt.Sprintf("Equipped %s (Damage: %s)", GetObjectSymbol(selectedObject.TypeObject), selectedObject.Damage))
+			c.Game.WaitingForWeaponChoice = false
+			return
+		}
+	} else {
+		c.Game.AddMessage("Invalid choice!")
+	}
+	c.Game.WaitingForWeaponChoice = false
+}
+
+func (c *Controller) HandleFoodChoice(ch rune) {
+	objects := c.Game.Player.Backpack.GetObjects(FOOD)
+	if len(objects) == 0 {
+		c.Game.WaitingForFoodChoice = false
+		return
+	}
+
+	if ch >= '1' && ch <= '9' {
+		choice, err := strconv.Atoi(string(ch))
+		if err != nil {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForFoodChoice = false
+			return
+		}
+
+		if choice < 1 || choice > len(objects) {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForFoodChoice = false
+			return
+		}
+
+		selectedObject, _ := c.Game.Player.Backpack.UseObject(FOOD, choice-1)
+		if selectedObject != nil {
+			c.Game.Player.HP += selectedObject.Health
+			if c.Game.Player.HP > c.Game.Player.MaxHP {
+				c.Game.Player.HP = c.Game.Player.MaxHP
+			}
+			c.Game.Player.CountFood++
+			c.Game.AddMessage(fmt.Sprintf("Ate food. HP: %d/%d", c.Game.Player.HP, c.Game.Player.MaxHP))
+			c.Game.WaitingForFoodChoice = false
+			return
+		}
+	} else {
+		c.Game.AddMessage("Invalid choice!")
+	}
+	c.Game.WaitingForFoodChoice = false
+}
+
+func (c *Controller) HandleElixirChoice(ch rune) {
+	objects := c.Game.Player.Backpack.GetObjects(ELEXIR)
+	if len(objects) == 0 {
+		c.Game.WaitingForElixirChoice = false
+		return
+	}
+
+	if ch >= '1' && ch <= '9' {
+		choice, err := strconv.Atoi(string(ch))
+		if err != nil {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForElixirChoice = false
+			return
+		}
+
+		if choice < 1 || choice > len(objects) {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForElixirChoice = false
+			return
+		}
+
+		selectedObject, _ := c.Game.Player.Backpack.UseObject(ELEXIR, choice-1)
+		if selectedObject != nil {
+			switch selectedObject.SubtypeObject {
+			case DEXTERITY_ELIXIR:
+				c.Game.Player.Dexterity += selectedObject.Dexterity
+				c.Game.AddMessage(fmt.Sprintf("Drank Dexterity Elixir. Dexterity: %d", c.Game.Player.Dexterity))
+			case STRENGTH_ELIXIR:
+				c.Game.Player.Strength += selectedObject.Strength
+				c.Game.AddMessage(fmt.Sprintf("Drank Strength Elixir. Strength: %d", c.Game.Player.Strength))
+			}
+			c.Game.Player.CountElixir++
+			c.Game.WaitingForElixirChoice = false
+			return
+		}
+	} else {
+		c.Game.AddMessage("Invalid choice!")
+	}
+	c.Game.WaitingForElixirChoice = false
+}
+
+func (c *Controller) HandleScrollChoice(ch rune) {
+	objects := c.Game.Player.Backpack.GetObjects(SCROL)
+	if len(objects) == 0 {
+		c.Game.WaitingForScrollChoice = false
+		return
+	}
+
+	if ch >= '1' && ch <= '9' {
+		choice, err := strconv.Atoi(string(ch))
+		if err != nil {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForScrollChoice = false
+			return
+		}
+
+		if choice < 1 || choice > len(objects) {
+			c.Game.AddMessage("Invalid choice!")
+			c.Game.WaitingForScrollChoice = false
+			return
+		}
+
+		selectedObject, _ := c.Game.Player.Backpack.UseObject(SCROL, choice-1)
+		if selectedObject != nil {
+			switch selectedObject.SubtypeObject {
+			case DEXTERITY_SCROL:
+				c.Game.Player.Dexterity += selectedObject.Dexterity
+				c.Game.AddMessage(fmt.Sprintf("Read Dexterity Scroll. Dexterity: %d", c.Game.Player.Dexterity))
+			case STRENGTH_SCROL:
+				c.Game.Player.Strength += selectedObject.Strength
+				c.Game.AddMessage(fmt.Sprintf("Read Strength Scroll. Strength: %d", c.Game.Player.Strength))
+			case HEALTH_SCROL:
+				c.Game.Player.MaxHP += selectedObject.MaxHealth
+				c.Game.Player.HP += selectedObject.MaxHealth
+				c.Game.AddMessage(fmt.Sprintf("Read Health Scroll. Max HP: %d, HP: %d", c.Game.Player.MaxHP, c.Game.Player.HP))
+			}
+			c.Game.Player.CountScrollsRead++
+			c.Game.WaitingForScrollChoice = false
+			return
+		}
+	} else {
+		c.Game.AddMessage("Invalid choice!")
+	}
+	c.Game.WaitingForScrollChoice = false
 }
