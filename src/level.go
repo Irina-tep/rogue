@@ -7,19 +7,17 @@ import (
 	"github.com/rthornton128/goncurses"
 )
 
-// уровень с картой, комнатами, объектами
 type Level struct {
 	Tiles    [][]Tile
 	Rooms    []Room
-	Tunnels  []Tunnel // все тоннели
-	Enemies  []Enemy  // все врагами
+	Tunnels  []Tunnel
+	Enemies  []Enemy
 	Objects  []*Object
-	Number   int      // номер уровня
+	Number   int
 	Explored [][]bool // Матрица исследованных областей
 	Visible  [][]bool // Матрица видимых в данный момент областей
 }
 
-// конструктор Level
 func NewLevel() Level {
 	l := Level{}
 	l.Explored = make([][]bool, ScreenWidth)
@@ -40,13 +38,13 @@ func NewLevel() Level {
 type Tile struct {
 	PosX            int
 	PosY            int
-	Blocked         bool // можно ли переместиться на клетку или нет, на стену переместиться нельзя, поэтому в этом случае будет true, внутри комнаты перемещаться можно, будет falsw
+	Blocked         bool // можно ли переместиться на клетку или нет
 	Symbol          byte
 	BlockedForEnemy bool // враги могут ходить только по своей комнате
 	ColorAttr       goncurses.Char
 }
 
-// Это определяет набор констант для типов игровых клеток, которые у нас есть, и упрощает дальнейшее расширение, когда мы захотим добавить двери или лестницы.
+// Это определяет набор констант для типов игровых клеток, которые у нас есть
 const (
 	TileFloor        string = "floor"
 	TileWallVertical string = "wallVertical"
@@ -55,19 +53,18 @@ const (
 	TilePlayer       string = "player"
 	TileTunnel       string = "tunnel"
 	TilePortal       string = "Portal"
-	TileZombie       string = "zombie"    // Зомби
-	TileVampire      string = "vampire"   // Вампир
-	TileGhost        string = "ghost"     // Призрак
-	TileOgre         string = "ogre"      // Огр
-	TileSnakeMage    string = "snakeMage" // Змееволг
-	TileFood         string = "food"      // Пища в определенной степени восстанавливает здоровье .
-	// TileTreasure string = "treasure"  //Сокровища — имеют ценность, накапливаются со временем и влияют на итоговый счет. Сокровища можно получить только победив врагов
-	TileElixir string = "elixir" // Эликсиры — временно увеличивают один из параметров персонажа: ловкость, силу или максимальное здоровье.
-	TileScroll string = "scroll" // Свитки — навсегда увеличивают один из параметров: ловкость, силу или максимальное здоровье.
-	TileWeapon string = "weapon" // Оружие обладает показателем силы .
+	TileZombie       string = "zombie"
+	TileVampire      string = "vampire"
+	TileGhost        string = "ghost"
+	TileOgre         string = "ogre"
+	TileSnakeMage    string = "snakeMage"
+	TileFood         string = "food"
+	TileElixir       string = "elixir"
+	TileScroll       string = "scroll"
+	TileWeapon       string = "weapon"
 )
 
-// создаем свою ошибку, если найденный символ не найден, возможно потом не будем использовать
+// создаем свою ошибку, если найденный символ не найден
 type TileNotFoundError struct{}
 
 func (error *TileNotFoundError) Error() string {
@@ -142,9 +139,7 @@ func NewTile(x int, y int, tileType string) (Tile, error) {
 
 // создаем игровую клетку
 func (level *Level) createTiles() {
-	// Создаем слайс строк
 	tiles := make([][]Tile, ScreenWidth)
-	// Для каждой строки создаем слайс столбцов
 	for i := range tiles {
 		tiles[i] = make([]Tile, ScreenHeight)
 	}
@@ -248,16 +243,13 @@ func (level *Level) createTiles() {
 
 // генерация портала , который дает нам перейти на новый уровень
 func (level *Level) CreatePortal() (int, int) {
-	// выбираем рандомную комнату, кроме стартовой, она сейчас у на 0
 	indexRoom := GeneratorNum(1, 7)
 	for {
 		coordXPort, coordYPort := level.Rooms[indexRoom].RandomPos()
-		// возвращаем только те координаты, которые ранее не заняты
 		if level.Tiles[coordXPort][coordYPort].Symbol == '.' {
 			return coordXPort, coordYPort
 		}
 	}
-	// возвращает координаты этого портала
 }
 
 // функция достает координаты игрока из тайлов
@@ -355,8 +347,8 @@ func (l *Level) HasLineOfSight(x0, y0, x1, y1 int) bool {
 	}
 }
 
+// Определяем видимость
 func (l *Level) CalculateVisibility(playerX, playerY int, radius int) {
-	// Сначала находим комнату, в которой находится игрок
 	playerRoom := l.FindRoomContaining(playerX, playerY)
 
 	// Если игрок находится в комнате, отмечаем всю комнату как исследованную

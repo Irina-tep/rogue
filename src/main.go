@@ -15,16 +15,16 @@ const (
 // главная структура игры
 type Game struct {
 	Player                 *Player
-	Levels                 []Level // все 21 уровень
-	CurrentLevel           *Level  // текущий уровень
-	CurrentLevelIndex      int     // индекс текущего уровня
+	Levels                 []Level
+	CurrentLevel           *Level
+	CurrentLevelIndex      int
 	Messages               []string
-	Seed                   uint64       // чтобы при запуске игры не генерировались одни и те же параметры, одна и та же последовательность
-	RNG                    *rand.Rand   // для генерации
-	Running                bool         // true - игра активна, если нет - программа завершается
-	StateGame              int          // состояние игры
-	SaveManager            *SaveManager // Менеджер сохранений
-	Renderer               *Renderer    // Рендерер
+	Seed                   uint64
+	RNG                    *rand.Rand
+	Running                bool
+	StateGame              int
+	SaveManager            *SaveManager
+	Renderer               *Renderer
 	WaitingForWeaponChoice bool
 	WaitingForFoodChoice   bool
 	WaitingForElixirChoice bool
@@ -39,34 +39,13 @@ const (
 	MainMenu int = 4 // главное меню
 )
 
-// Этот конструктор создаст Game для нас новый объект, который в данный момент пуст, но будет расширяться по мере дальнейшего выполнения кода.
 func NewGame(state int) *Game {
 	g := &Game{
 		Seed:        (uint64)(time.Now().UnixNano()),
 		Running:     true,
 		StateGame:   state,
-		SaveManager: NewSaveManager(), // Инициализируем менеджер сохранений
+		SaveManager: NewSaveManager(),
 	}
-	// Если это не меню, инициализируем уровни и игрока
-	// if state != MainMenu {
-	// 	g.RNG = rand.New(rand.NewPCG(g.Seed, 10))
-	// 	// Создаем уровни
-	// 	for i := 0; i < CountLevels; i++ {
-	// 		level := NewLevel()
-	// 		level.Number = i
-	// 		g.Levels = append(g.Levels, level)
-	// 	}
-	// 	// Инициализируем уровень
-	// 	g.CurrentLevelIndex = 0
-	// 	g.CurrentLevel = &g.Levels[0]
-	// 	// Создаем игрока
-	// 	startX, startY := g.CurrentLevel.GetPos()
-	// 	player := NewPlayer(startX, startY, g.CurrentLevelIndex)
-	// 	g.Player = &player
-	// 	// Добавляем сообщения
-	// 	g.AddMessage("Start game!")
-	// 	g.AddMessage("Use WASD for action, q for exit")
-	// }
 	return g
 }
 
@@ -78,8 +57,8 @@ func (g *Game) UpgradeLevel() {
 	}
 	g.CurrentLevelIndex++
 	g.CurrentLevel = &g.Levels[g.CurrentLevelIndex]
-	g.Player.CurrentLevelIndex = g.CurrentLevelIndex // Обновляем текущий уровень игрока
-	// Перемещаем игрока в стартовую позицию
+	g.Player.CurrentLevelIndex = g.CurrentLevelIndex
+
 	startX, startY := g.CurrentLevel.Rooms[0].RandomPos()
 	g.Player.PosX = startX
 	g.Player.PosY = startY
@@ -90,17 +69,10 @@ func (g *Game) UpgradeLevel() {
 // Добавление сообщения
 func (g *Game) AddMessage(msg string) {
 	g.Messages = append(g.Messages, msg)
-	// Ограничиваем количество сообщений
 	if len(g.Messages) > 100 {
 		g.Messages = g.Messages[len(g.Messages)-100:]
 	}
 }
-
-// если будем менять логику, то понадобится, пока не нужно
-// func (g *Game) Update() error {
-// 	HandleInput(g)
-// 	return nil
-// }
 
 func main() {
 	// Создаем игру в состоянии главного меню
@@ -109,7 +81,7 @@ func main() {
 	if err := render.Init(); err != nil {
 		log.Fatalf("Failed to initialize renderer: %v", err)
 	}
-	game.Renderer = &render // Передаем рендерер в структуру Game
+	game.Renderer = &render
 	controller := NewController(game, render.GameWindow)
 	defer render.Cleanup()
 	flag := true
@@ -121,7 +93,6 @@ func main() {
 	for game.Running {
 		render.Render(game)
 		controller.HandleInput()
-		// Если игра перешла в состояние игры, обрабатываем врагов
 		if game.StateGame == YouGame {
 			controller.EnemyFOV()
 			controller.EnemyTurn()
@@ -129,7 +100,7 @@ func main() {
 	}
 }
 
-// Для сохранения
+// Для загрузки сохраненных данных
 func (g *Game) LoadFromSave(saveData *SaveData) error {
 	if saveData == nil {
 		return fmt.Errorf("saveData is nil")
@@ -153,9 +124,8 @@ func (g *Game) LoadFromSave(saveData *SaveData) error {
 	g.Player.CountHits = saveData.Player.CountHits
 	g.Player.CountTile = saveData.Player.CountTile
 	g.Player.IsSleeping = saveData.Player.IsSleeping
-	g.Player.Name = saveData.Player.Name // Загружаем имя игрока
+	g.Player.Name = saveData.Player.Name
 
-	// Восстанавливаем рюкзак
 	g.Player.Backpack = NewBackpack()
 	for objectType, objects := range saveData.Player.Backpack {
 		for _, objectData := range objects {
@@ -173,15 +143,12 @@ func (g *Game) LoadFromSave(saveData *SaveData) error {
 		}
 	}
 
-	// Проверка и инициализация временных эффектов
 	if g.Player.TemporaryEffects == nil {
 		g.Player.TemporaryEffects = make(map[string]int)
 	}
 
-	// Восстанавливаем временные эффекты
 	g.Player.TemporaryEffects = saveData.Player.TemporaryEffects
 
-	// Создаем новый уровень
 	g.CurrentLevel = &Level{
 		Tiles:    make([][]Tile, ScreenWidth),
 		Rooms:    make([]Room, len(saveData.CurrentLevel.Rooms)),
@@ -192,17 +159,14 @@ func (g *Game) LoadFromSave(saveData *SaveData) error {
 		Visible:  make([][]bool, ScreenWidth),
 	}
 
-	// Инициализируем матрицу тайлов
 	for x := 0; x < ScreenWidth; x++ {
 		g.CurrentLevel.Tiles[x] = make([]Tile, ScreenHeight)
 	}
 
-	// Инициализируем и восстанавливаем исследованные и видимые области
 	for x := 0; x < ScreenWidth; x++ {
 		g.CurrentLevel.Explored[x] = make([]bool, ScreenHeight)
 		g.CurrentLevel.Visible[x] = make([]bool, ScreenHeight)
 		for y := 0; y < ScreenHeight; y++ {
-			// Проверяем, есть ли данные в сохранении
 			if x < len(saveData.CurrentLevel.Explored) && y < len(saveData.CurrentLevel.Explored[x]) {
 				g.CurrentLevel.Explored[x][y] = saveData.CurrentLevel.Explored[x][y]
 			} else {

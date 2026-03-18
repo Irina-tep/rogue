@@ -6,7 +6,6 @@ import (
 
 // Типы предметов
 const (
-	// Типы предметов
 	FOOD = iota
 	ELEXIR
 	SCROL
@@ -30,20 +29,19 @@ const (
 	SWORD
 )
 
-// Object — структура для предметов
 type Object struct {
-	TypeObject    int    // Тип предмета (FOOD, POTION, WEAPON, etc.)
-	SubtypeObject int    // Подтип (например, для еды: RATION, FRUIT)
-	Health        int    // Здоровье (восстановление)
-	MaxHealth     int    // Максимальное здоровье (увеличение)
-	Dexterity     int    // Ловкость
-	Strength      int    // Сила
-	ValueObject   int    // Ценность (для сокровищ)
-	Quantity      int    // Количество
-	IsCursed      bool   // Проклят
-	IsIdentified  bool   // Определён
-	Damage        string // Урон (например, "1d6")
-	PosX, PosY    int    // Позиция на карте
+	TypeObject    int
+	SubtypeObject int
+	Health        int
+	MaxHealth     int
+	Dexterity     int
+	Strength      int
+	ValueObject   int
+	Quantity      int
+	IsCursed      bool
+	IsIdentified  bool
+	Damage        string
+	PosX, PosY    int
 }
 
 // NewObject — создание нового предмета с заданным типом

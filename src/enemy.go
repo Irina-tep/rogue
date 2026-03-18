@@ -7,29 +7,29 @@ import (
 type Enemy struct {
 	PosXEnemy      int
 	PosYEnemy      int
-	TypeEnemy      string // Тип врага: Zombie, Vampire, Ghost, Ogre, SnakeMage
-	HealthEnemy    int    // Здоровье
-	DexterityEnemy int    // Ловкость
-	StrengthEnemy  int    // Сила
-	HostilityEnemy int    // Враждебность (радиус преследования)
-	CurrentRoom    *Room  // Текущая комната
-	Mode           int    // Режим: Roaming, Chasing, Fight
-	IsVisible      bool   // Видимость (для призраков)
-	IsSleeping     bool   // Состояние сна (для змееволгов)
-	Cooldown       int    // Задержка перед атакой (для огров)
-	Treasure       int    // Количество сокровищ, которые даёт враг при поражении
+	TypeEnemy      string
+	HealthEnemy    int
+	DexterityEnemy int
+	StrengthEnemy  int
+	HostilityEnemy int
+	CurrentRoom    *Room
+	Mode           int
+	IsVisible      bool
+	IsSleeping     bool
+	Cooldown       int
+	Treasure       int
 }
 
 // типов врагов
 const (
-	Zombie    string = "zombie"    // Зомби
-	Vampire   string = "vampire"   // Вампир
-	Ghost     string = "ghost"     // Призрак
-	Ogre      string = "ogre"      // Огр
-	SnakeMage string = "snakeMage" // Змееволг
+	Zombie    string = "zombie"
+	Vampire   string = "vampire"
+	Ghost     string = "ghost"
+	Ogre      string = "ogre"
+	SnakeMage string = "snakeMage"
 )
 
-const ( // шанс появления врага, потом будем менять вероятность появления врага в комнате в зависимости от уровня, так как По мере того, как игрок переходит на каждый новый уровень:
+const ( // шанс появления врага
 	// количество и сложность врагов увеличиваются
 	ChanceZombie    int = 30
 	ChanceVampire   int = 25
@@ -47,12 +47,11 @@ const (
 
 // враждебность
 const (
-	LoWHostility    int = 4 // низкая враждебность
-	MiddleHostility int = 6 // средняя враждеюность
-	HighHostility   int = 8 // высокая враждебность
+	LoWHostility    int = 4
+	MiddleHostility int = 6
+	HighHostility   int = 8
 )
 
-// характеристики врагов будут меняться, пока поставлены просто так
 func NewEnemy(coordXEnemy, coordYEnemy int, typeEnemy string, currentRoom *Room) Enemy {
 	enemy := Enemy{
 		PosXEnemy:   coordXEnemy,
@@ -82,7 +81,7 @@ func NewEnemy(coordXEnemy, coordYEnemy int, typeEnemy string, currentRoom *Room)
 		enemy.HealthEnemy = 10
 		enemy.DexterityEnemy = 20
 		enemy.StrengthEnemy = 5
-		enemy.HostilityEnemy = 10 // Увеличиваем радиус враждебности
+		enemy.HostilityEnemy = 10
 		enemy.Treasure = 15
 	case Ogre:
 		enemy.HealthEnemy = 40
@@ -186,9 +185,8 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 	newX, newY := en.PosXEnemy, en.PosYEnemy
 	lenX := en.PosXEnemy - TargetX
 	lenY := en.PosYEnemy - TargetY
-	singX := 1 // сохраняем знак
-	singY := 1 // сохраняем знак
-	// x1, x2, y1, y2 := en.CurrentRoom.Interior()  //не знаю нужно ли проверять на выход из комнаты
+	singX := 1
+	singY := 1
 	if lenX < 0 {
 		lenX *= (-1)
 		singX = -1
@@ -197,7 +195,7 @@ func (en *Enemy) ChaseTarget(TargetX int, TargetY int) (int, int) {
 		singY = -1
 	}
 
-	if lenX < lenY { // двигаемся в вертик направлении
+	if lenX < lenY {
 		if singY == -1 { // двигаемся вниз
 			switch en.TypeEnemy {
 			case Zombie, Vampire:
@@ -283,7 +281,6 @@ func (en *Enemy) isBlocked(level *Level, x, y int) bool {
 
 // Attack атакует игрока, учитывая тип врага и его уникальные способности
 func (en *Enemy) Attack(player *Player, controller *Controller) bool {
-	// Проверка на попадание
 	hitChance := 70 + en.DexterityEnemy - player.Dexterity
 	if hitChance > 90 {
 		hitChance = 90
@@ -299,7 +296,6 @@ func (en *Enemy) Attack(player *Player, controller *Controller) bool {
 	// Уникальные особенности для каждого типа врага при атаке
 	switch en.TypeEnemy {
 	case Zombie:
-		// Зомби могут заразить игрока, уменьшая его максимальное здоровье
 		if GeneratorNum(0, 100) < 10 { // 10% шанс
 			player.MaxHP -= 1
 			if player.MaxHP < 1 {
@@ -338,7 +334,7 @@ func (en *Enemy) Attack(player *Player, controller *Controller) bool {
 		}
 	}
 
-	player.TotalHitsTaken++ // Увеличиваем количество полученных попаданий
+	player.TotalHitsTaken++
 
 	// Рассчитываем урон
 	damage := en.StrengthEnemy + GeneratorNum(0, 5)
@@ -347,7 +343,7 @@ func (en *Enemy) Attack(player *Player, controller *Controller) bool {
 		player.HP = 0
 	}
 
-	controller.Game.Player.CountHits++ // Увеличиваем количество полученных попаданий
+	controller.Game.Player.CountHits++
 	controller.Game.AddMessage(fmt.Sprintf("%s hit you for %d damage!", en.TypeEnemy, damage))
 
 	// Проверяем, умер ли игрок

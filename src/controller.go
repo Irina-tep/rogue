@@ -1,6 +1,5 @@
 package main
 
-// Здесь обрабатывается ввод
 import (
 	"fmt"
 	"log"
@@ -18,7 +17,6 @@ type Controller struct {
 	GameWindow *goncurses.Window
 }
 
-// конструктор .
 func NewController(game *Game, gameWindow *goncurses.Window) Controller {
 	return Controller{
 		Game:       game,
@@ -28,7 +26,7 @@ func NewController(game *Game, gameWindow *goncurses.Window) Controller {
 
 // Обработка ввода
 func (controller *Controller) HandleInput() {
-	ch := controller.GameWindow.GetChar() // Используем GameWindow из Controller
+	ch := controller.GameWindow.GetChar()
 	dx := 0
 	dy := 0
 	if controller.Game.WaitingForWeaponChoice {
@@ -109,34 +107,27 @@ func (c *Controller) LoadLastSave() {
 	saveData, err := c.Game.SaveManager.LoadGame("last_save.json")
 	if err != nil {
 		c.Game.AddMessage(fmt.Sprintf("No save found: %v", err))
-		// Если сохранения нет, начинаем новую игру
 		c.StartNewGame()
 		return
 	}
 
-	// Инициализируем игру (уровни, игрока)
 	c.Game.RNG = rand.New(rand.NewPCG(c.Game.Seed, 10))
-	// Создаем уровни
 	for i := 0; i < CountLevels; i++ {
 		level := NewLevel()
 		level.Number = i
 		c.Game.Levels = append(c.Game.Levels, level)
 	}
 
-	// Устанавливаем текущий уровень (временный)
 	c.Game.CurrentLevelIndex = 0
 	c.Game.CurrentLevel = &c.Game.Levels[0]
 
-	// Создаем временного игрока (поля будут перезаписаны в LoadFromSave)
 	startX, startY := c.Game.CurrentLevel.GetPos()
 	player := NewPlayer(startX, startY, c.Game.CurrentLevelIndex)
 	c.Game.Player = &player
 
-	// Загружаем данные сохранения
 	err = c.Game.LoadFromSave(saveData)
 	if err != nil {
 		c.Game.AddMessage(fmt.Sprintf("Failed to load save: %v", err))
-		// Если не удалось загрузить, начинаем новую игру
 		c.StartNewGame()
 	} else {
 		c.Game.StateGame = YouGame
@@ -146,26 +137,20 @@ func (c *Controller) LoadLastSave() {
 
 // StartNewGame - начать новую игру
 func (c *Controller) StartNewGame() {
-	// Запрашиваем имя игрока
 	playerName := c.Game.Renderer.EnterPlayerName()
-	// Инициализируем игру
 	c.Game.RNG = rand.New(rand.NewPCG(c.Game.Seed, 10))
-	// Создаем уровни
 	for i := 0; i < CountLevels; i++ {
 		level := NewLevel()
 		level.Number = i
 		c.Game.Levels = append(c.Game.Levels, level)
 	}
-	// Инициализируем уровень
 	c.Game.CurrentLevelIndex = 0
 	c.Game.CurrentLevel = &c.Game.Levels[0]
-	// Создаем игрока
 	startX, startY := c.Game.CurrentLevel.GetPos()
 	player := NewPlayer(startX, startY, c.Game.CurrentLevelIndex)
-	player.Name = playerName // Сохраняем имя игрока
+	player.Name = playerName
 	c.Game.Player = &player
 	c.UpdateVisibility()
-	// Добавляем сообщения
 	c.Game.AddMessage("Start new game!")
 	c.Game.AddMessage("Use WASD for action, q for exit")
 
@@ -179,17 +164,14 @@ func (controller *Controller) MovePlayer(dx int, dy int) {
 	for i := 0; i < len(controller.Game.CurrentLevel.Enemies); i++ {
 		if controller.Game.CurrentLevel.Enemies[i].PosXEnemy == newX && controller.Game.CurrentLevel.Enemies[i].PosYEnemy == newY {
 			controller.PlayerAttack(&controller.Game.CurrentLevel.Enemies[i])
-			return // если аттакует, то после этого заканчиваем ход
+			return
 		}
 	}
-	// если в тайле враг, то атакуем есои нет , то :
-
 	if !tile.Blocked {
 		controller.Game.Player.PosX = newX
 		controller.Game.Player.PosY = newY
 		controller.Game.Player.CountTile++
 
-		// Проверяем, не наступили ли на портал
 		if tile.Symbol == '%' {
 			if controller.Game.CurrentLevelIndex < CountLevels-1 {
 				controller.Game.UpgradeLevel()
@@ -198,15 +180,13 @@ func (controller *Controller) MovePlayer(dx int, dy int) {
 				controller.SaveStatistics(true)
 			}
 		}
-
-		// Подбираем предмет, если он есть на клетке
 		controller.PickUpObject()
 		controller.UpdateTiles()
 		controller.UpdateVisibility()
 	}
 }
 
-// меняем состояние игры, для этого нужно обновить тайлы. Когда добавляем новые объекты в поле, обновляем тайлы здесь, в рендере не должно быть никакой логики, там только отрисовываются обновленные тайлы
+// меняем состояние игры, для этого нужно обновить тайлы. Когда добавляем новые объекты в поле, обновляем тайлы здесь
 func (controller *Controller) UpdateTiles() {
 	// мы проходим по всем комнатам уровня и формируем их интерьер: стены, пол
 	for _, room := range controller.Game.CurrentLevel.Rooms {
@@ -267,33 +247,23 @@ func (c *Controller) UpdateVisibility() {
 	level := c.Game.CurrentLevel
 	playerX, playerY := c.Game.Player.PosX, c.Game.Player.PosY
 
-	// Очищаем видимые клетки
 	for x := 0; x < ScreenWidth; x++ {
 		for y := 0; y < ScreenHeight; y++ {
 			level.Visible[x][y] = false
 		}
 	}
 
-	// Определяем комнату, в которой находится игрок
 	playerRoom := level.FindRoomContaining(playerX, playerY)
-
-	// Радиус видимости
 	radius := 8
-
-	// Обновляем исследованные области (туман войны)
 	level.CalculateVisibility(playerX, playerY, radius)
 
-	// Устанавливаем видимые клетки
 	for x := 0; x < ScreenWidth; x++ {
 		for y := 0; y < ScreenHeight; y++ {
-			// Если клетка в той же комнате, что и игрок, она видима
 			if playerRoom != nil && x >= playerRoom.X1 && x <= playerRoom.X2 && y >= playerRoom.Y1 && y <= playerRoom.Y2 {
 				level.Visible[x][y] = true
 				continue
 			}
 
-			// Для клеток вне комнаты игрока проверяем видимость только если они очень близко
-			// и есть прямая видимость без блокировок
 			distance := (x-playerX)*(x-playerX) + (y-playerY)*(y-playerY)
 			if distance <= radius*radius && level.HasLineOfSight(playerX, playerY, x, y) { // радиус 3 клетки
 				level.Visible[x][y] = true
@@ -338,7 +308,6 @@ func (c *Controller) EnemyTurn() {
 		} else if enemy.Mode == Chasing {
 			newX, newY = enemy.ChaseTarget(c.Game.Player.PosX, c.Game.Player.PosY)
 		}
-		// Проверяем, можно ли переместиться на новую позицию
 		if !c.Game.CurrentLevel.Tiles[newX][newY].BlockedForEnemy {
 			enemy.PosXEnemy = newX
 			enemy.PosYEnemy = newY
@@ -354,24 +323,6 @@ func (c *Controller) isPlayerInRange(enemy *Enemy) bool {
 	distance := math.Sqrt(float64(dx*dx + dy*dy))
 	return distance <= float64(enemy.HostilityEnemy)
 }
-
-// func (controller *Controller) EnemyTurn() {
-// 	for i := 0; i < len(controller.Game.CurrentLevel.Enemies); i++ {
-// 		x, y := controller.Game.CurrentLevel.Enemies[i].PosXEnemy, controller.Game.CurrentLevel.Enemies[i].PosYEnemy
-// 		if controller.Game.CurrentLevel.Enemies[i].Mode == Roaming {
-// 			x, y = controller.Game.CurrentLevel.Enemies[i].EnemyMove()
-// 		} else if controller.Game.CurrentLevel.Enemies[i].Mode == Chasing {
-// 			x, y = controller.Game.CurrentLevel.Enemies[i].ChaseTarget(controller.Game.Player.PosX, controller.Game.Player.PosY)
-// 		}
-
-// 		tile := controller.Game.CurrentLevel.Tiles[x][y]
-// 		if !tile.BlockedForEnemy {
-// 			controller.Game.CurrentLevel.Enemies[i].PosXEnemy = x
-// 			controller.Game.CurrentLevel.Enemies[i].PosYEnemy = y
-// 			controller.UpdateTiles()
-// 		}
-// 	}
-// }
 
 // HandleSave - сохранение игры
 func (c *Controller) HandleSave() {
@@ -430,19 +381,16 @@ func (c *Controller) SaveStatistics(isCompleted bool) {
 	if totalPlayTime < 0 {
 		totalPlayTime = 0
 	}
-	// Используем текущий уровень (или + 1, так как индексация начинается с 0, надо понять)
 	reachedLevel := c.Game.Player.CurrentLevelIndex
 
-	// Получаем имя игрока
 	playerName := c.Game.Player.Name
 	if playerName == "" {
 		playerName = "Player"
 	}
-	// Сохраняем статистику
-	// Сохраняем статистику
+
 	c.Game.SaveManager.AddStatistic(
 		c.Game.Player.Name,
-		reachedLevel, // Используем reachedLevel
+		reachedLevel,
 		c.Game.Player.CountEnemy,
 		c.Game.Player.Treasure,
 		c.Game.Player.CountFood,
@@ -708,7 +656,6 @@ func (c *Controller) PlayerAttack(enemy *Enemy) {
 // функция для отображения таблицы лидеров
 func (c *Controller) ShowLeaderboard() {
 	c.Game.Renderer.ShowLeaderboard(c.Game)
-	// GetChar уже вызван внутри ShowLeaderboard, не нужно повторять
 }
 
 func (c *Controller) HandleWeaponChoice(ch rune) {

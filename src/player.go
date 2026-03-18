@@ -12,14 +12,14 @@ type Player struct {
 	Treasure          int
 	Backpack          *Backpack
 	TemporaryEffects  map[string]int
-	IsSleeping        bool // Состояние сна
+	IsSleeping        bool
 	CurrentLevelIndex int
 	CountEnemy        int
 	CountFood         int
 	CountElixir       int
 	CountScrollsRead  int
 	CountHits         int
-	TotalHitsTaken    int // Добавлено поле для подсчета полученных попаданий
+	TotalHitsTaken    int
 	CountTile         int
 }
 
@@ -50,7 +50,7 @@ func NewBackpack() *Backpack {
 	backpack := &Backpack{
 		Objects: make(map[int][]*Object),
 	}
-	// Инициализируем все возможные типы предметов
+
 	backpack.Objects[FOOD] = []*Object{}
 	backpack.Objects[ELEXIR] = []*Object{}
 	backpack.Objects[SCROL] = []*Object{}
@@ -60,7 +60,7 @@ func NewBackpack() *Backpack {
 
 // Метод для добавления предмета в рюкзак
 func (bp *Backpack) AddObject(object *Object) bool {
-	if len(bp.Objects[object.TypeObject]) >= 9 { // Ограничение: 9 предметов каждого типа
+	if len(bp.Objects[object.TypeObject]) >= 9 {
 		return false
 	}
 	bp.Objects[object.TypeObject] = append(bp.Objects[object.TypeObject], object)

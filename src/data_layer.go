@@ -11,10 +11,10 @@ import (
 )
 
 type SaveData struct {
-	Player       PlayerData `json:"player"`       // Данные игрока
-	CurrentLevel LevelData  `json:"currentLevel"` // Текущий уровень
-	SaveName     string     `json:"saveName"`     // Имя сохранения
-	Timestamp    time.Time  `json:"timestamp"`    // Время сохранения
+	Player       PlayerData `json:"player"`
+	CurrentLevel LevelData  `json:"currentLevel"`
+	SaveName     string     `json:"saveName"`
+	Timestamp    time.Time  `json:"timestamp"`
 }
 
 // копируем в новую структуру данных все состояние игры
@@ -35,19 +35,19 @@ type PlayerData struct {
 	CountScrollsRead  int                   `json:"countScrollsRead"`
 	CountHits         int                   `json:"countHits"`
 	CountTile         int                   `json:"countTile"`
-	Backpack          map[int][]*ObjectData `json:"backpack"`         // Добавлено поле рюкзака
-	TemporaryEffects  map[string]int        `json:"temporaryEffects"` // Добавлено поле временных эффектов
-	IsSleeping        bool                  `json:"isSleeping"`       // Сохраняем состояние сна
+	Backpack          map[int][]*ObjectData `json:"backpack"`
+	TemporaryEffects  map[string]int        `json:"temporaryEffects"`
+	IsSleeping        bool                  `json:"isSleeping"`
 }
 
 type LevelData struct {
-	Tiles    [][]TileData `json:"tiles"`       // Матрица тайлов
-	Rooms    []RoomData   `json:"rooms"`       // Комнаты
-	Tunnels  []TunnelData `json:"tunnels"`     // Туннели
-	Enemies  []EnemyData  `json:"enemies"`     // Враги
-	Number   int          `json:"numberLevel"` // Номер уровня
-	Explored [][]bool     `json:"explored"`    // Исследованные области
-	Visible  [][]bool     `json:"visible"`     // Видимые в данный момент области
+	Tiles    [][]TileData `json:"tiles"`
+	Rooms    []RoomData   `json:"rooms"`
+	Tunnels  []TunnelData `json:"tunnels"`
+	Enemies  []EnemyData  `json:"enemies"`
+	Number   int          `json:"numberLevel"`
+	Explored [][]bool     `json:"explored"`
+	Visible  [][]bool     `json:"visible"`
 }
 
 type RoomData struct {
@@ -77,9 +77,9 @@ type EnemyData struct {
 	DexterityEnemy int    `json:"dexterityEnemy"`
 	StrengthEnemy  int    `json:"strengthEnemy"`
 	HostilityEnemy int    `json:"hostilityEnemy"`
-	CurrentRoom    int    `json:"currentRoom"` // индекс комнаты, а не указатель
+	CurrentRoom    int    `json:"currentRoom"`
 	Mode           int    `json:"mode"`
-	Treasure       int    `json:"treasure"` // Сохраняем количество сокровищ
+	Treasure       int    `json:"treasure"`
 }
 
 type ObjectData struct {
@@ -95,13 +95,12 @@ type ObjectData struct {
 
 // Менеджер сохранений
 type SaveManager struct {
-	SaveDir    string          // Директория для сохранений
-	Current    *SaveData       // Текущее сохранение
-	Statistics []StatisticData // Статистика всех прохождений
+	SaveDir    string
+	Current    *SaveData
+	Statistics []StatisticData
 }
 
 func NewSaveManager() *SaveManager {
-	// Создаем директорию для сохранений
 	saveDir := "./saves"
 	if _, err := os.Stat(saveDir); os.IsNotExist(err) {
 		os.Mkdir(saveDir, 0755)
@@ -111,15 +110,12 @@ func NewSaveManager() *SaveManager {
 
 		SaveDir: saveDir,
 	}
-
-	// Загружаем статистику
 	sm.LoadStatistics()
 	return sm
 }
 
 // SaveGame - сохранение игры
 func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
-	// Конвертируем игровые данные в структуру сохранения
 	saveData := &SaveData{
 		SaveName:  saveName,
 		Timestamp: time.Now(),
@@ -153,7 +149,6 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 		},
 	}
 
-	// СОХРАНЯЕМ ТАЙЛЫ - конвертируем в TileData
 	for x := 0; x < ScreenWidth; x++ {
 		saveData.CurrentLevel.Tiles[x] = make([]TileData, ScreenHeight)
 		for y := 0; y < ScreenHeight; y++ {
@@ -167,7 +162,7 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			}
 		}
 	}
-	// Сохраняем исследованные и видимые области
+
 	for x := 0; x < ScreenWidth; x++ {
 		saveData.CurrentLevel.Explored[x] = make([]bool, ScreenHeight)
 		saveData.CurrentLevel.Visible[x] = make([]bool, ScreenHeight)
@@ -176,7 +171,7 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			saveData.CurrentLevel.Visible[x][y] = g.CurrentLevel.Visible[x][y]
 		}
 	}
-	// Сохраняем комнаты
+
 	for i, room := range g.CurrentLevel.Rooms {
 		saveData.CurrentLevel.Rooms[i] = RoomData{
 			X1: room.X1,
@@ -185,13 +180,13 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			Y2: room.Y2,
 		}
 	}
-	// Сохраняем туннели
+
 	for i, tunnel := range g.CurrentLevel.Tunnels {
 		saveData.CurrentLevel.Tunnels[i] = TunnelData{
 			Path: tunnel.Path,
 		}
 	}
-	// СОХРАНЯЕМ ВРАГОВ со всеми полями
+
 	for i, enemy := range g.CurrentLevel.Enemies {
 		roomIndex := -1
 		for j, room := range g.CurrentLevel.Rooms {
@@ -218,7 +213,7 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 			Treasure:       enemy.Treasure,
 		}
 	}
-	// Сохраняем рюкзак
+
 	for objectType, objects := range g.Player.Backpack.Objects {
 		for _, object := range objects {
 			saveData.Player.Backpack[objectType] = append(saveData.Player.Backpack[objectType], &ObjectData{
@@ -234,9 +229,8 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 		}
 	}
 
-	// Сохраняем временные эффекты
 	saveData.Player.TemporaryEffects = g.Player.TemporaryEffects
-	saveData.Player.IsSleeping = g.Player.IsSleeping // Сохраняем состояние сна
+	saveData.Player.IsSleeping = g.Player.IsSleeping
 	// Сохраняем в JSON файл
 	filename := filepath.Join(sm.SaveDir, saveName+".json")
 	data, err := json.MarshalIndent(saveData, "", "  ")
@@ -252,8 +246,6 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 	sm.Current = saveData
 	return nil
 }
-
-// дополнительные методы
 
 // ListSaves - список всех сохранений
 func (sm *SaveManager) ListSaves() ([]SaveInfo, error) {
@@ -353,16 +345,16 @@ func (sm *SaveManager) GetLatestSave() (*SaveData, error) {
 type StatisticData struct {
 	PlayerName     string    `json:"playerName"`
 	Timestamp      time.Time `json:"timestamp"`
-	ReachedLevel   int       `json:"reachedLevel"`   // достигнутый уровень
-	TotalEnemies   int       `json:"totalEnemies"`   // всего побеждено врагов
-	TotalTreasure  int       `json:"totalTreasure"`  // всего собрано сокровищ
-	TotalFood      int       `json:"totalFood"`      // всего потреблено еды
-	TotalElixirs   int       `json:"totalElixirs"`   // всего выпито эликсиров
-	TotalScrolls   int       `json:"totalScrolls"`   // всего прочитано свитков
-	TotalHits      int       `json:"totalHits"`      // всего нанесено попаданий
-	TotalHitsTaken int       `json:"totalHitsTaken"` // всего получено попаданий
-	TotalSteps     int       `json:"totalSteps"`     // всего пройдено клеток
-	IsCompleted    bool      `json:"isCompleted"`    // завершено ли прохождение
+	ReachedLevel   int       `json:"reachedLevel"`
+	TotalEnemies   int       `json:"totalEnemies"`
+	TotalTreasure  int       `json:"totalTreasure"`
+	TotalFood      int       `json:"totalFood"`
+	TotalElixirs   int       `json:"totalElixirs"`
+	TotalScrolls   int       `json:"totalScrolls"`
+	TotalHits      int       `json:"totalHits"`
+	TotalHitsTaken int       `json:"totalHitsTaken"`
+	TotalSteps     int       `json:"totalSteps"`
+	IsCompleted    bool      `json:"isCompleted"`
 }
 
 // Leaderboard - таблица лидеров
@@ -372,7 +364,6 @@ var Leaderboard []StatisticData
 func (sm *SaveManager) LoadStatistics() error {
 	statsFile := filepath.Join(sm.SaveDir, "statistics.json")
 	if _, err := os.Stat(statsFile); os.IsNotExist(err) {
-		// Файл не существует, создаем пустую статистику
 		sm.Statistics = []StatisticData{}
 		return nil
 	}
@@ -427,7 +418,6 @@ func (sm *SaveManager) AddStatistic(playerName string, reachedLevel int, totalEn
 	// Сортируем по количеству собранных сокровищ (по убыванию)
 	sortStatistics(sm.Statistics)
 
-	// Ограничиваем количество записей (например, топ-50)
 	if len(sm.Statistics) > 50 {
 		sm.Statistics = sm.Statistics[:50]
 	}
@@ -438,19 +428,15 @@ func (sm *SaveManager) AddStatistic(playerName string, reachedLevel int, totalEn
 // sortStatistics - сортировка статистики
 func sortStatistics(stats []StatisticData) {
 	sort.Slice(stats, func(i, j int) bool {
-		// Сначала сортируем по завершённости прохождения
 		if stats[i].IsCompleted != stats[j].IsCompleted {
 			return stats[i].IsCompleted
 		}
-		// Затем по количеству собранных сокровищ (по убыванию)
 		if stats[i].TotalTreasure != stats[j].TotalTreasure {
 			return stats[i].TotalTreasure > stats[j].TotalTreasure
 		}
-		// Затем по достигнутому уровню (по убыванию)
 		if stats[i].ReachedLevel != stats[j].ReachedLevel {
 			return stats[i].ReachedLevel > stats[j].ReachedLevel
 		}
-		// Затем по времени (чем меньше время, тем лучше)
 		return stats[i].Timestamp.Before(stats[j].Timestamp)
 	})
 }

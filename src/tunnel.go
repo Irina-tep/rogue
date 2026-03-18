@@ -10,36 +10,26 @@ const (
 )
 
 type Tunnel struct {
-	Path [][2]int //Путь
+	Path [][2]int
 }
 
 // находим связи со всеми комнатами, возаращаем слайс 2-х связных комнат
 func CreateGraph() [][2]int {
-	var Rebra [][2]int          // Список пар как срез из [2]int
-	var VerticesInTree []int    // множество вершин, уже добавленных в дерево
-	var AvailableVertices []int // вершины, из которых можно растить дерево
-	// Шаг 1: Инициализация
-	start := rand.IntN(amountRoom)                       //случайное_число(0, 8)
-	VerticesInTree = append(VerticesInTree, start)       // добавить старт в в_дереве
-	AvailableVertices = append(AvailableVertices, start) // добавить старт в доступные_вершины
-	// Шаг 2: Основной цикл - строим дерево
+	var Rebra [][2]int
+	var VerticesInTree []int
+	var AvailableVertices []int
+	start := rand.IntN(amountRoom)
+	VerticesInTree = append(VerticesInTree, start)
+	AvailableVertices = append(AvailableVertices, start)
 	for len(VerticesInTree) < amountRoom {
-		// Выбираем случайную вершину из тех, у кого есть неподключенные соседи
-		// (на практике просто выбираем случайную из доступных_вершины)
-		indexCurrentVertice := rand.IntN(len(AvailableVertices)) //сохраняем индекс текущей вершины
-		currentVertice := AvailableVertices[indexCurrentVertice] //текущая = выбрать_случайный_элемент(доступные_вершины)
-		// Получаем всех ортогональных соседей текущей вершины
+		indexCurrentVertice := rand.IntN(len(AvailableVertices))
+		currentVertice := AvailableVertices[indexCurrentVertice]
 		allNeighborVertice := orthogonalNeighbor(currentVertice)
 		// Оставляем только тех соседей, которых еще нет в дереве
-		var UnconnectedVertices []int // неподключенные_соседи
+		var UnconnectedVertices []int
 		for _, neighbor := range allNeighborVertice {
-			// Проверяем, есть ли сосед в дереве c помощью slices.Contains
-			// found := slices.Contains(VerticesInTree, neighbor)
-			// if !found {
-			// 	UnconnectedVertices = append(UnconnectedVertices, neighbor)
-			// }
+
 			found := false
-			// Проверяем, есть ли сосед в дереве через цикл
 			for _, v := range VerticesInTree {
 				if neighbor == v {
 					found = true
@@ -52,15 +42,11 @@ func CreateGraph() [][2]int {
 		}
 		// Если у текущей вершины есть неподключенные соседи
 		if len(UnconnectedVertices) > 0 {
-			// Выбираем случайного соседа для подключения
-			newNeighbor := UnconnectedVertices[rand.IntN(len(UnconnectedVertices))] //новый_сосед = выбрать_случайный_элемент(неподключенные_соседи)
-			// Добавляем ребро
-			Rebra = append(Rebra, [2]int{currentVertice, newNeighbor}) // добавить (текущая, новый_сосед) в ребра
-			// Добавляем новую вершину в дерево
-			VerticesInTree = append(VerticesInTree, newNeighbor)       //добавить новый_сосед в в_дереве
-			AvailableVertices = append(AvailableVertices, newNeighbor) //добавить новый_сосед в доступные_вершины
+			newNeighbor := UnconnectedVertices[rand.IntN(len(UnconnectedVertices))]
+			Rebra = append(Rebra, [2]int{currentVertice, newNeighbor})
+			VerticesInTree = append(VerticesInTree, newNeighbor)
+			AvailableVertices = append(AvailableVertices, newNeighbor)
 		} else {
-			// Если у текущей вершины нет неподключенных соседей, удаляем её из доступных вершин (она "исчерпала себя")
 			AvailableVertices = append(AvailableVertices[:indexCurrentVertice], AvailableVertices[indexCurrentVertice+1:]...)
 		}
 	}
@@ -89,9 +75,8 @@ func orthogonalNeighbor(vertice int) []int {
 // находим двери для этого нужны расположение всех комнат в левеле и 2 вершины графа(комнаты) возвращаем координаты дверей
 func FoundDoors(level *Level, room1 int, room2 int) (int, int, int, int, bool) {
 	var coordXDoor1, coordYDoor1, coordXDoor2, coordYDoor2 int
-	horizont := false     //направление соединение комнат (комната1 расположены относительно комнаты2 слева/справа/сверху/внизу)
+	horizont := false
 	if room1-room2 == 1 { //если первая комната расположена правее второй
-		//генерируем координату двери x=x1, y от х1+1 до х2-1, так исключаем углы
 		coordXDoor1 = level.Rooms[room1].X1
 		coordYDoor1 = GeneratorNum(level.Rooms[room1].Y1+1, level.Rooms[room1].Y2-1)
 		coordXDoor2 = level.Rooms[room2].X2
@@ -120,15 +105,14 @@ func FoundDoors(level *Level, room1 int, room2 int) (int, int, int, int, bool) {
 }
 
 func (tunnel *Tunnel) CreateTunnel(coordXDoor1 int, coordYDoor1 int, coordXDoor2 int, coordYDoor2 int, horizont bool) {
-	// Очищаем путь перед созданием
 	tunnel.Path = make([][2]int, 0)
 	//делаем так чтобы направление пути всегда было слева направо и сверху вниз
-	if (!horizont && coordYDoor1 > coordYDoor2) || (horizont && coordXDoor1 > coordXDoor2) { //если идет справа налево, то меняем местами координаты
+	if (!horizont && coordYDoor1 > coordYDoor2) || (horizont && coordXDoor1 > coordXDoor2) {
 		coordXDoor1, coordXDoor2 = coordXDoor2, coordXDoor1
 		coordYDoor1, coordYDoor2 = coordYDoor2, coordYDoor1
 	}
 	if horizont {
-		// Проверяем, что есть место для поворота, если нет, то будет просто горизонтальная линия
+
 		if coordXDoor2-coordXDoor1 < 3 {
 			for x := coordXDoor1; x <= coordXDoor2; x++ {
 				tunnel.Path = append(tunnel.Path, [2]int{x, coordYDoor1})
