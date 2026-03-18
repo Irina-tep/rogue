@@ -1,5 +1,33 @@
 [
   {
+    "playerName": "",
+    "timestamp": "2026-03-18T20:27:53.788369+09:00",
+    "reachedLevel": 14,
+    "totalEnemies": 63,
+    "totalTreasure": 1085,
+    "totalFood": 42,
+    "totalElixirs": 41,
+    "totalScrolls": 53,
+    "totalHits": 85,
+    "totalHitsTaken": 0,
+    "totalSteps": 6762,
+    "isCompleted": false
+  },
+  {
+    "playerName": "Player",
+    "timestamp": "2026-03-18T20:22:40.845385+09:00",
+    "reachedLevel": 12,
+    "totalEnemies": 56,
+    "totalTreasure": 980,
+    "totalFood": 39,
+    "totalElixirs": 38,
+    "totalScrolls": 47,
+    "totalHits": 78,
+    "totalHitsTaken": 1,
+    "totalSteps": 6185,
+    "isCompleted": false
+  },
+  {
     "playerName": "Player",
     "timestamp": "2026-03-18T19:36:08.461788+09:00",
     "reachedLevel": 1,
@@ -109,6 +137,20 @@
     "totalHits": 6,
     "totalHitsTaken": 0,
     "totalSteps": 170,
+    "isCompleted": false
+  },
+  {
+    "playerName": "Valeria",
+    "timestamp": "2026-03-18T20:29:48.160122+09:00",
+    "reachedLevel": 2,
+    "totalEnemies": 0,
+    "totalTreasure": 0,
+    "totalFood": 0,
+    "totalElixirs": 1,
+    "totalScrolls": 3,
+    "totalHits": 4,
+    "totalHitsTaken": 2,
+    "totalSteps": 261,
     "isCompleted": false
   },
   {

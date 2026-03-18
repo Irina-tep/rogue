@@ -125,6 +125,8 @@ func (c *Controller) LoadLastSave() {
 
 // StartNewGame - начать новую игру
 func (c *Controller) StartNewGame() {
+	// Запрашиваем имя игрока
+	playerName := c.EnterPlayerName()
 	// Инициализируем игру
 	c.Game.RNG = rand.New(rand.NewPCG(c.Game.Seed, 10))
 	// Создаем уровни
@@ -139,6 +141,7 @@ func (c *Controller) StartNewGame() {
 	// Создаем игрока
 	startX, startY := c.Game.CurrentLevel.GetPos()
 	player := NewPlayer(startX, startY, c.Game.CurrentLevelIndex)
+	player.Name = playerName // Сохраняем имя игрока
 	c.Game.Player = &player
 
 	// Добавляем сообщения
@@ -404,17 +407,26 @@ func (c *Controller) SaveStatistics(isCompleted bool) {
 	if totalPlayTime < 0 {
 		totalPlayTime = 0
 	}
+	// Используем текущий уровень
+	reachedLevel := c.Game.Player.CurrentLevelIndex
+
+	// Получаем имя игрока
+	playerName := c.Game.Player.Name
+	if playerName == "" {
+		playerName = "Player"
+	}
+	// Сохраняем статистику
 	// Сохраняем статистику
 	c.Game.SaveManager.AddStatistic(
-		"Player", // Можно добавить ввод имени игрока позже
-		c.Game.Player.CurrentLevelIndex,
+		c.Game.Player.Name,
+		reachedLevel, // Используем reachedLevel
 		c.Game.Player.CountEnemy,
 		c.Game.Player.Treasure,
 		c.Game.Player.CountFood,
 		c.Game.Player.CountElixir,
 		c.Game.Player.CountScrollsRead,
 		c.Game.Player.CountHits,
-		0, // TotalHitsTaken (нужно добавить логику для подсчета)
+		c.Game.Player.TotalHitsTaken,
 		c.Game.Player.CountTile,
 		isCompleted,
 	)
@@ -695,4 +707,30 @@ func (c *Controller) PlayerAttack(enemy *Enemy) {
 func (c *Controller) ShowLeaderboard() {
 	c.Game.Renderer.ShowLeaderboard(c.Game)
 	c.Game.Renderer.GameWindow.GetChar() // Ждем нажатия клавиши
+}
+
+func (c *Controller) EnterPlayerName() string {
+	r := c.Game.Renderer
+	r.GameWindow.Clear()
+	r.GameWindow.MovePrint(ScreenHeight/2-1, ScreenWidth/2-10, "Enter your name:")
+	goncurses.Echo(true)
+	goncurses.Cursor(1)
+	name := ""
+	for {
+		ch := c.GameWindow.GetChar()
+		if ch == '\n' {
+			break
+		} else if ch == 127 || ch == 8 { // Backspace
+			if len(name) > 0 {
+				name = name[:len(name)-1]
+			}
+		} else {
+			name += string(ch)
+		}
+		r.GameWindow.MovePrint(ScreenHeight/2+1, ScreenWidth/2-10, name)
+		r.GameWindow.Refresh()
+	}
+	goncurses.Echo(false)
+	goncurses.Cursor(0)
+	return name
 }

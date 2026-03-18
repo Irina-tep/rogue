@@ -19,6 +19,7 @@ type SaveData struct {
 
 // копируем в новую структуру данных все состояние игры
 type PlayerData struct {
+	Name              string                `json:"name"`
 	PosX              int                   `json:"posX"`
 	PosY              int                   `json:"posY"`
 	HP                int                   `json:"hp"`
@@ -122,6 +123,7 @@ func (sm *SaveManager) SaveGame(g *Game, saveName string) error {
 		SaveName:  saveName,
 		Timestamp: time.Now(),
 		Player: PlayerData{
+			Name:              g.Player.Name,
 			PosX:              g.Player.PosX,
 			PosY:              g.Player.PosY,
 			HP:                g.Player.HP,

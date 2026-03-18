@@ -1,6 +1,7 @@
 package main
 
 type Player struct {
+	Name              string
 	PosX              int
 	PosY              int
 	HP                int
@@ -24,6 +25,7 @@ type Player struct {
 
 func NewPlayer(x int, y int, currentLevelIndex int) Player {
 	player := Player{
+		Name:              "Player",
 		PosX:              x,
 		PosY:              y,
 		HP:                20,
@@ -34,7 +36,7 @@ func NewPlayer(x int, y int, currentLevelIndex int) Player {
 		Treasure:          0,
 		Backpack:          NewBackpack(),
 		TemporaryEffects:  make(map[string]int),
-		IsSleeping:        false, // Инициализация состояния сна
+		IsSleeping:        false,
 		CurrentLevelIndex: currentLevelIndex + 1,
 	}
 	return player

@@ -74,6 +74,7 @@ func (g *Game) UpgradeLevel() {
 	}
 	g.CurrentLevelIndex++
 	g.CurrentLevel = &g.Levels[g.CurrentLevelIndex]
+	g.Player.CurrentLevelIndex = g.CurrentLevelIndex // Обновляем текущий уровень игрока
 	// Перемещаем игрока в стартовую позицию
 	startX, startY := g.CurrentLevel.Rooms[0].RandomPos()
 	g.Player.PosX = startX
@@ -125,6 +126,7 @@ func (g *Game) LoadFromSave(saveData *SaveData) error {
 	}
 
 	// Загружаем данные игрока
+	g.Player.Name = saveData.Player.Name
 	g.Player.PosX = saveData.Player.PosX
 	g.Player.PosY = saveData.Player.PosY
 	g.Player.HP = saveData.Player.HP
@@ -141,6 +143,7 @@ func (g *Game) LoadFromSave(saveData *SaveData) error {
 	g.Player.CountHits = saveData.Player.CountHits
 	g.Player.CountTile = saveData.Player.CountTile
 	g.Player.IsSleeping = saveData.Player.IsSleeping
+	g.Player.Name = saveData.Player.Name // Загружаем имя игрока
 
 	// Восстанавливаем рюкзак
 	g.Player.Backpack = NewBackpack()
